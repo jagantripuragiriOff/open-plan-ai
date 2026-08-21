@@ -522,10 +522,23 @@ const Signup = () => {
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 By creating an account, you agree to our{" "}
-                <span className="text-primary">Terms of Service</span>
+                <a
+                  href="https://www.openplanai.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Terms of Service
+                </a>
                 {" "}and{" "}
-                <span className="text-primary">Privacy Policy</span>
-                {" "}(coming soon)
+                <a
+                  href="https://www.openplanai.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Privacy Policy
+                </a>
               </p>
               {!isInviteSignup && (
                 <p className="text-sm text-muted-foreground text-center">
