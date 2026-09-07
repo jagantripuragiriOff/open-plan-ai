@@ -604,14 +604,6 @@ export function CoveragePill({ status }: { status: CoverageStatus }) {
   );
 }
 
-// Deterministic pseudo-random spread seeded by part number, so seeded numbers stay stable
-// across re-renders without needing a backend.
-function seededRandom(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return (h % 1000) / 1000;
-}
-
 export interface BuildLine {
   partId: string;
   pn: string;
@@ -637,15 +629,16 @@ export interface BuildAssignee {
 
 export interface Build {
   id: string;
+  projectId: string;
   name: string;
   type: string;
   units: number;
   bomRev: string;
   scrapPct: number;
   linkedMilestone: string;
-  targetDate: string;      // ISO
-  projectedDate: string;   // ISO — target + longest-lead short line's lead time
-  daysLate: number;        // 0 when clear to build
+  targetDate: string | null; // ISO — the build's user-set target date; null when none is set
+  projectedDate: string;   // ISO — today + longest-lead short line's lead time
+  daysLate: number;        // 0 when clear to build or no target date is set
   lines: BuildLine[];
   readyCount: number;
   onOrderCount: number;
@@ -666,8 +659,8 @@ export interface BuildDef {
   bomRev: string;
   scrapPct: number;
   milestone: string;
-  /** User-entered target date (new builds). Legacy seeded builds omit this and fall back to
-   * a synthetic lateness offset so their numbers stay stable across re-renders. */
+  /** User-entered target date. Optional — left unset until someone picks one in the
+   * New build / Edit build dialog. */
   targetDate?: string;
   status: BuildStatus;
   assignee: BuildAssignee | null;
@@ -743,20 +736,19 @@ export function buildFromDef(def: BuildDef, bomLines: BuildBomLine[]): Build {
     ? shortLines.reduce((max, l) => (l.leadTimeDays > (max?.leadTimeDays ?? 0) ? l : max), null as BuildLine | null)
     : null;
 
+  // Projected ready = today + the lead time of the longest-lead shorted line. Recomputed
+  // every render off `now`, so it tracks as stock is received / orders land / shortages clear.
   const projectedDate = addDays(now, longestLead?.leadTimeDays ?? 0);
 
-  let targetDate: string;
-  let daysLate: number;
-  if (def.targetDate) {
-    targetDate = def.targetDate;
-    daysLate = shortLines.length ? Math.max(0, diffDays(projectedDate, targetDate)) : 0;
-  } else {
-    daysLate = shortLines.length ? Math.round(30 + seededRandom(def.id) * 150) : 0;
-    targetDate = addDays(new Date(projectedDate), -daysLate);
-  }
+  // Lateness only exists relative to a real, user-set target. No target → no "days late",
+  // no at-risk banner (the panel guards on `targetDate` before showing either).
+  const targetDate = def.targetDate ?? null;
+  const daysLate = targetDate && shortLines.length
+    ? Math.max(0, diffDays(projectedDate, targetDate))
+    : 0;
 
   return {
-    id: def.id, name: def.name, type: def.type, units: def.units,
+    id: def.id, projectId: def.projectId, name: def.name, type: def.type, units: def.units,
     bomRev: def.bomRev, scrapPct: def.scrapPct, linkedMilestone: def.milestone,
     targetDate, projectedDate, daysLate,
     lines, readyCount, onOrderCount, shortLines, longestLead,

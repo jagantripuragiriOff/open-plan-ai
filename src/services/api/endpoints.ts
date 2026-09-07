@@ -391,6 +391,7 @@ export const ENDPOINTS = {
     BUILDS:       (orgId: string) => `/organizations/${orgId}/inventory/builds`,
     BUILD_BOM_LINES: (orgId: string, buildId: string) => `/organizations/${orgId}/inventory/builds/${buildId}/bom-lines`,
     BUILDS_CREATE:      (projectId: string) => `/projects/${projectId}/inventory/builds`,
+    BUILDS_UPDATE:      (projectId: string, buildId: string) => `/projects/${projectId}/inventory/builds/${buildId}`,
     RECEIVE:            (orgId: string) => `/organizations/${orgId}/inventory/stock/receive`,
     ADJUST:             (orgId: string) => `/organizations/${orgId}/inventory/stock/adjust`,
     ISSUE:              (orgId: string) => `/organizations/${orgId}/inventory/stock/issue`,

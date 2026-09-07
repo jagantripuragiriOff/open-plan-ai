@@ -14,6 +14,7 @@ import {
   type AllocateStockDto,
   type PlaceOrderDto,
   type CreateBuildDto,
+  type UpdateBuildDto,
 } from '@/services/inventory.service';
 
 export function useInventoryStock(orgId: string | undefined) {
@@ -147,6 +148,18 @@ export function useCreateInventoryBuild(orgId: string) {
       inventoryService.createBuild(projectId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.builds(orgId) });
+    },
+  });
+}
+
+export function useUpdateInventoryBuild(orgId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, buildId, ...dto }: UpdateBuildDto & { projectId: string; buildId: string }) =>
+      inventoryService.updateBuild(projectId, buildId, dto),
+    onSuccess: (_data, { buildId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.builds(orgId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.buildBomLines(orgId, buildId) });
     },
   });
 }
