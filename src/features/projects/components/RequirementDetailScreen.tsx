@@ -306,7 +306,7 @@ function OverviewTab({ r, ai, criteria, onNavigate }:
 
       {/* right column — AI quality panel */}
       <div style={{ flex:'1 1 260px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
-        <AIQualityPanel ai={ai} req={r}/>
+        {/* <AIQualityPanel ai={ai} req={r}/> */}
       </div>
     </div>
   );
