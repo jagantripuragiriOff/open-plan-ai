@@ -285,9 +285,11 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
     </div>
   );
   if (editorOpen) return (
-    <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
-      onClose={() => { setEditorOpen(false); setEditKey(null); }}
-      onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
+      <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
+        onClose={() => { setEditorOpen(false); setEditKey(null); }}
+        onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
+    </div>
   );
 
   const showExpandToggle = view === 'table' && !hasActiveFilters(filters) && sortField === 'tree';

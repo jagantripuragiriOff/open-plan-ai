@@ -164,7 +164,7 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col bg-background overflow-hidden" style={{ height: 'calc(100vh - 75px)', minHeight: 0 }}>
       {/* header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card shrink-0">
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={onClose}>
@@ -178,11 +178,10 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
       </div>
 
       {/* body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* main form — centered reading column so leftover width splits evenly
-            instead of piling up as dead space next to the AI panel */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* main form */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="max-w-[700px] mx-auto">
+          <div className="w-full">
 
             {/* 1. EARS pattern */}
             <EditorCard num="1" title="EARS pattern" icon={GitBranch}>
