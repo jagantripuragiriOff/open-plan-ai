@@ -63,7 +63,7 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
   );
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'hsl(var(--background))' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 75px)', minHeight:0, background:'hsl(var(--background))', overflow:'hidden' }}>
       {/* Top bar */}
       <div style={{ background: 'hsl(var(--card))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -150,8 +150,8 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
       </div>
 
       {/* Body */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
-        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+      <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
+        <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'20px 24px' }}>
           {tab === 'overview' && <OverviewTab r={r} ai={ai} criteria={criteria} onNavigate={onNavigate}/>}
           {tab === 'trace'    && <TraceTab    r={r} projectId={projectId} onNavigate={onNavigate}/>}
           {tab === 'verify'   && <VerifyTab   r={r} projectId={projectId} orgId={orgId} onEcoCreated={onEcoCreated}/>}
@@ -218,96 +218,88 @@ function OverviewTab({ r, ai, criteria, onNavigate }:
   const typeM = REQ_TYPE[r.type];
 
   return (
-    <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
-      {/* left column */}
-      <div style={{ flex:'2 1 500px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
-        {/* gap banner */}
-        {r.hasGap && (
-          <div style={{ padding:'10px 14px', borderRadius:10, border:`1px solid ${softTint('#D97706',0.35)}`, background:softTint('#D97706',0.06), display:'flex', alignItems:'flex-start', gap:10 }}>
-            <AlertTriangle size={15} color="#D97706" style={{ flexShrink:0, marginTop:1 }}/>
-            <div>
-              <div style={{ fontSize:13, fontWeight:600, color:'#D97706', marginBottom:4 }}>Requirement gaps</div>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                {r.coverage.orphan        && <GapBadge type="orphan"/>}
-                {r.coverage.untested      && <GapBadge type="untested"/>}
-                {r.coverage.unimplemented && <GapBadge type="unimplemented"/>}
-                {r.coverage.suspect       && <GapBadge type="suspect"/>}
+    <div style={{ display:'flex', flexDirection:'column', gap:14, width:'100%' }}>
+      {/* gap banner */}
+      {r.hasGap && (
+        <div style={{ padding:'10px 14px', borderRadius:10, border:`1px solid ${softTint('#D97706',0.35)}`, background:softTint('#D97706',0.06), display:'flex', alignItems:'flex-start', gap:10 }}>
+          <AlertTriangle size={15} color="#D97706" style={{ flexShrink:0, marginTop:1 }}/>
+          <div>
+            <div style={{ fontSize:13, fontWeight:600, color:'#D97706', marginBottom:4 }}>Requirement gaps</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {r.coverage.orphan        && <GapBadge type="orphan"/>}
+              {r.coverage.untested      && <GapBadge type="untested"/>}
+              {r.coverage.unimplemented && <GapBadge type="unimplemented"/>}
+              {r.coverage.suspect       && <GapBadge type="suspect"/>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement statement */}
+      <DetailCard title="Requirement statement" icon={BookOpen}>
+        <p style={{ fontSize:14, color:'hsl(var(--foreground))', lineHeight:1.65, margin:0 }}>
+          {highlightEARS(r.statement)}
+        </p>
+        {r.rationale && (
+          <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid hsl(var(--border))', fontSize:12.5, color:'hsl(var(--muted-foreground))', lineHeight:1.55 }}>
+            <span style={{ fontWeight:600, color:'hsl(var(--foreground))' }}>Rationale: </span>{r.rationale}
+          </div>
+        )}
+        {r.target && (
+          <div style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:8, background:softTint('#3B82F6',0.08), border:`1px solid ${softTint('#3B82F6',0.25)}` }}>
+            <span style={{ fontSize:11.5, color:'hsl(var(--muted-foreground))' }}>Target:</span>
+            <span style={{ fontSize:13.5, fontWeight:700, color:'#3B82F6' }}>{r.target.value}</span>
+            {r.target.tolerance && <span style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>{r.target.tolerance}</span>}
+            <span style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{r.target.unit}</span>
+          </div>
+        )}
+      </DetailCard>
+
+      {/* Attributes grid */}
+      <DetailCard title="Attributes" icon={Activity}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:12 }}>
+          <MetaField label="Type"><TypePill type={r.type}/></MetaField>
+          <MetaField label="Category"><CatPill category={r.category}/></MetaField>
+          <MetaField label="Priority"><PriorityPill priority={r.priority}/></MetaField>
+          <MetaField label="Status"><StatusBadge status={r.status}/></MetaField>
+          <MetaField label="V-Method"><span style={{ fontSize:12.5 }}>{r.vmethod}</span></MetaField>
+          <MetaField label="V-Status"><VStatusBadge vstatus={r.vstatus}/></MetaField>
+          <MetaField label="Owner"><div style={{ display:'flex', alignItems:'center', gap:6 }}><OwnerAvatar ownerId={r.owner} size={22}/><span style={{ fontSize:12.5 }}>{ownerOf(r.owner).name}</span></div></MetaField>
+          <MetaField label="Version"><span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.version}</span></MetaField>
+          {r.standard && <MetaField label="Standard"><span style={{ fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:'#3B82F6' }}>{r.standard}</span></MetaField>}
+          {r.alloc?.length > 0 && <MetaField label="Allocated to"><span style={{ fontSize:12 }}>{r.alloc.join(', ')}</span></MetaField>}
+        </div>
+      </DetailCard>
+
+      {/* Acceptance criteria */}
+      <DetailCard title="Acceptance criteria" icon={ClipboardCheck} accent="#16A34A">
+        {criteria.map((c, i) => (
+          <div key={i} style={{ padding:'10px 12px', borderRadius:9, border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))', marginBottom:i < criteria.length-1 ? 8 : 0 }}>
+            <CritLine color="#0EA5E9" label="GIVEN" text={c.given}/>
+            <CritLine color="#9333EA" label="WHEN"  text={c.when}/>
+            <CritLine color="#16A34A" label="THEN"  text={c.then}/>
+          </div>
+        ))}
+      </DetailCard>
+
+      {/* Decomposition tree */}
+      {r.childKeys.length > 0 && (
+        <DetailCard title={`Child requirements (${r.childKeys.length})`} icon={GitBranch}>
+          {r.childKeys.map(k => {
+            const c = BY_KEY[k]; if (!c) return null;
+            return (
+              <div key={k} onClick={() => onNavigate(k)} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, border:'1px solid hsl(var(--border))', marginBottom:6, cursor:'pointer', transition:'background .1s' }}
+                onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')}
+                onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                <ReqKeyTag reqKey={c.key}/>
+                <span style={{ flex:1, fontSize:13, color:'hsl(var(--foreground))', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.title}</span>
+                <StatusBadge status={c.status}/>
+                <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Requirement statement */}
-        <DetailCard title="Requirement statement" icon={BookOpen}>
-          <p style={{ fontSize:14, color:'hsl(var(--foreground))', lineHeight:1.65, margin:0 }}>
-            {highlightEARS(r.statement)}
-          </p>
-          {r.rationale && (
-            <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid hsl(var(--border))', fontSize:12.5, color:'hsl(var(--muted-foreground))', lineHeight:1.55 }}>
-              <span style={{ fontWeight:600, color:'hsl(var(--foreground))' }}>Rationale: </span>{r.rationale}
-            </div>
-          )}
-          {r.target && (
-            <div style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:8, background:softTint('#3B82F6',0.08), border:`1px solid ${softTint('#3B82F6',0.25)}` }}>
-              <span style={{ fontSize:11.5, color:'hsl(var(--muted-foreground))' }}>Target:</span>
-              <span style={{ fontSize:13.5, fontWeight:700, color:'#3B82F6' }}>{r.target.value}</span>
-              {r.target.tolerance && <span style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>{r.target.tolerance}</span>}
-              <span style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{r.target.unit}</span>
-            </div>
-          )}
+            );
+          })}
         </DetailCard>
-
-        {/* Attributes grid */}
-        <DetailCard title="Attributes" icon={Activity}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:12 }}>
-            <MetaField label="Type"><TypePill type={r.type}/></MetaField>
-            <MetaField label="Category"><CatPill category={r.category}/></MetaField>
-            <MetaField label="Priority"><PriorityPill priority={r.priority}/></MetaField>
-            <MetaField label="Status"><StatusBadge status={r.status}/></MetaField>
-            <MetaField label="V-Method"><span style={{ fontSize:12.5 }}>{r.vmethod}</span></MetaField>
-            <MetaField label="V-Status"><VStatusBadge vstatus={r.vstatus}/></MetaField>
-            <MetaField label="Owner"><div style={{ display:'flex', alignItems:'center', gap:6 }}><OwnerAvatar ownerId={r.owner} size={22}/><span style={{ fontSize:12.5 }}>{ownerOf(r.owner).name}</span></div></MetaField>
-            <MetaField label="Version"><span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.version}</span></MetaField>
-            {r.standard && <MetaField label="Standard"><span style={{ fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:'#3B82F6' }}>{r.standard}</span></MetaField>}
-            {r.alloc?.length > 0 && <MetaField label="Allocated to"><span style={{ fontSize:12 }}>{r.alloc.join(', ')}</span></MetaField>}
-          </div>
-        </DetailCard>
-
-        {/* Acceptance criteria */}
-        <DetailCard title="Acceptance criteria" icon={ClipboardCheck} accent="#16A34A">
-          {criteria.map((c, i) => (
-            <div key={i} style={{ padding:'10px 12px', borderRadius:9, border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))', marginBottom:i < criteria.length-1 ? 8 : 0 }}>
-              <CritLine color="#0EA5E9" label="GIVEN" text={c.given}/>
-              <CritLine color="#9333EA" label="WHEN"  text={c.when}/>
-              <CritLine color="#16A34A" label="THEN"  text={c.then}/>
-            </div>
-          ))}
-        </DetailCard>
-
-        {/* Decomposition tree */}
-        {r.childKeys.length > 0 && (
-          <DetailCard title={`Child requirements (${r.childKeys.length})`} icon={GitBranch}>
-            {r.childKeys.map(k => {
-              const c = BY_KEY[k]; if (!c) return null;
-              return (
-                <div key={k} onClick={() => onNavigate(k)} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, border:'1px solid hsl(var(--border))', marginBottom:6, cursor:'pointer', transition:'background .1s' }}
-                  onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')}
-                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                  <ReqKeyTag reqKey={c.key}/>
-                  <span style={{ flex:1, fontSize:13, color:'hsl(var(--foreground))', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.title}</span>
-                  <StatusBadge status={c.status}/>
-                  <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>
-                </div>
-              );
-            })}
-          </DetailCard>
-        )}
-      </div>
-
-      {/* right column — AI quality panel */}
-      <div style={{ flex:'1 1 260px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
-        {/* <AIQualityPanel ai={ai} req={r}/> */}
-      </div>
+      )}
     </div>
   );
 }
@@ -1003,9 +995,9 @@ function ActivityPanel({ reqKey }: { reqKey:string }) {
   const [comment, setComment] = useState('');
 
   return (
-    <div style={{ width:300, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column' }}>
-      <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))' }}>Activity</div>
-      <div style={{ flex:1, overflowY:'auto', padding:'12px 14px' }}>
+    <div style={{ width:300, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
+      <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))', flexShrink:0 }}>Activity</div>
+      <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px' }}>
         {MOCK_ACTIVITY.map((a,i) => (
           <div key={i} style={{ display:'flex', gap:9, marginBottom:14 }}>
             <span style={{ width:26, height:26, borderRadius:9999, flexShrink:0, background:softTint(a.color,0.18), color:a.color, fontSize:9.5, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', border:`1px solid ${softTint(a.color,0.3)}` }}>{a.actor}</span>
@@ -1016,7 +1008,7 @@ function ActivityPanel({ reqKey }: { reqKey:string }) {
           </div>
         ))}
       </div>
-      <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))' }}>
+      <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))', flexShrink:0, background:'hsl(var(--card))' }}>
         <div style={{ display:'flex', gap:7 }}>
           <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Leave a comment…" rows={2}
             style={{ flex:1, resize:'none', borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--background))', color:'hsl(var(--foreground))', padding:'7px 9px', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.45 }}/>
