@@ -1990,7 +1990,7 @@ export default function ProjectDetail() {
               onEcoCreated={(ecoId) => navigate(`/projects/${id}/eng-changes/${ecoId}`)}
             />
           </TabsContent>
-          <TabsContent value="requirements" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="requirements" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col overflow-x-hidden max-w-full">
             <RequirementsView
               projectId={project.id}
               orgId={currentOrganization?.id ?? ''}

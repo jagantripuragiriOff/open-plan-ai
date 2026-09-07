@@ -65,10 +65,10 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
   );
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 75px)', minHeight:0, background:'hsl(var(--background))', overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 75px)', minHeight:0, width:'100%', maxWidth:'100%', background:'hsl(var(--background))', overflow:'hidden' }}>
       {/* Top bar */}
-      <div style={{ background: 'hsl(var(--card))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      <div style={{ background: 'hsl(var(--card))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0, width:'100%', minWidth:0, overflow:'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, minWidth:0 }}>
           <button
             onClick={onClose}
             style={{
@@ -89,8 +89,8 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
           >
             <ArrowLeft size={18} color="hsl(var(--muted-foreground))" />
           </button>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', overflow: 'hidden' }}>
+            <h1 style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flexShrink: 1 }}>
               {r.title}
             </h1>
             <ReqKeyTag reqKey={r.key} />
@@ -110,50 +110,52 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
         </div>
 
         {/* Tabs (left) + Lifecycle stepper (right) in one row */}
-        <div style={{ display:'flex', alignItems:'center', gap:0, marginTop:4 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4, minWidth:0, overflowX:'hidden' }}>
 
           {/* Tabs */}
-          {([
-            ['overview', 'Overview',     BookOpen,       null           ] as const,
-            ['trace',    'Traceability', GitBranch,      r.links.length ] as const,
-            ['verify',   'Verification', ClipboardCheck, null           ] as const,
-          ]).map(([k, label, Ic, count]) => {
-            const active = tab === k;
-            return (
-              <button key={k} onClick={() => setTab(k as typeof tab)}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 14px', border:'none',
-                  borderBottom: active ? '2px solid #3B82F6' : '2px solid transparent',
-                  background:'transparent', cursor:'pointer', fontFamily:'inherit',
-                  fontSize:13, fontWeight: active ? 600 : 400,
-                  color: active ? '#3B82F6' : 'hsl(var(--muted-foreground))',
-                  transition:'color .1s', whiteSpace:'nowrap' }}>
-                <Ic size={13} color={active ? '#3B82F6' : 'hsl(var(--muted-foreground))'}/>
-                {label}
-                {count != null && count > 0 && (
-                  <span style={{ fontSize:11, fontWeight:600, color:'hsl(var(--muted-foreground))', background:'hsl(var(--muted))', borderRadius:9999, padding:'1px 6px', marginLeft:2 }}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          <div style={{ display:'flex', alignItems:'center', gap:0, flexShrink:0 }}>
+            {([
+              ['overview', 'Overview',     BookOpen,       null           ] as const,
+              ['trace',    'Traceability', GitBranch,      r.links.length ] as const,
+              ['verify',   'Verification', ClipboardCheck, null           ] as const,
+            ]).map(([k, label, Ic, count]) => {
+              const active = tab === k;
+              return (
+                <button key={k} onClick={() => setTab(k as typeof tab)}
+                  style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', border:'none',
+                    borderBottom: active ? '2px solid #3B82F6' : '2px solid transparent',
+                    background:'transparent', cursor:'pointer', fontFamily:'inherit',
+                    fontSize:13, fontWeight: active ? 600 : 400,
+                    color: active ? '#3B82F6' : 'hsl(var(--muted-foreground))',
+                    transition:'color .1s', whiteSpace:'nowrap' }}>
+                  <Ic size={13} color={active ? '#3B82F6' : 'hsl(var(--muted-foreground))'}/>
+                  {label}
+                  {count != null && count > 0 && (
+                    <span style={{ fontSize:11, fontWeight:600, color:'hsl(var(--muted-foreground))', background:'hsl(var(--muted))', borderRadius:9999, padding:'1px 6px', marginLeft:2 }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-          <div style={{ flex:1 }}/>
+          <div style={{ flex:1, minWidth:8 }}/>
 
           {/* Lifecycle stepper */}
           <LifecycleStepper status={r.status}/>
 
           {/* Activity toggle */}
           <button onClick={() => setActivityOpen(p=>!p)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', border:'none', borderBottom:'2px solid transparent', background:'transparent', cursor:'pointer', color:'hsl(var(--muted-foreground))', fontFamily:'inherit', fontSize:12.5, marginLeft:8 }}>
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 10px', border:'none', borderBottom:'2px solid transparent', background:'transparent', cursor:'pointer', color:'hsl(var(--muted-foreground))', fontFamily:'inherit', fontSize:12.5, flexShrink:0 }}>
             <MessageSquare size={13}/>{activityOpen ? 'Hide' : 'Activity'}
           </button>
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ flex:1, display:'flex', minHeight:0, overflow:'hidden' }}>
-        <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'20px 24px' }}>
+      <div style={{ flex:1, display:'flex', minHeight:0, minWidth:0, overflow:'hidden' }}>
+        <div style={{ flex:1, minHeight:0, minWidth:0, overflowY:'auto', padding:'20px 24px' }}>
           {tab === 'overview' && <OverviewTab r={r} ai={ai} criteria={criteria} onNavigate={onNavigate}/>}
           {tab === 'trace'    && <TraceTab    r={r} projectId={projectId} onNavigate={onNavigate}/>}
           {tab === 'verify'   && <VerifyTab   r={r} projectId={projectId} orgId={orgId} onEcoCreated={onEcoCreated}/>}
@@ -176,7 +178,7 @@ function TopBtn({ icon:Ic, label, tint, onClick, primary }: { icon:React.Element
 function LifecycleStepper({ status }: { status: ReqStatus }) {
   const cur = REQ_STATUS[status].step;
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:0, padding:'0 8px', flexShrink:0 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:0, padding:'0 4px', flexShrink:1, minWidth:0, overflowX:'auto' }}>
       {REQ_STATUS_FLOW.map((s, i) => {
         const m = REQ_STATUS[s];
         const done = cur > i;
@@ -188,21 +190,21 @@ function LifecycleStepper({ status }: { status: ReqStatus }) {
         return (
           <React.Fragment key={s}>
             {i > 0 && (
-              <div style={{ width:26, height:1.5, background:lineCol, flexShrink:0 }}/>
+              <div style={{ width:16, height:1.5, background:lineCol, flexShrink:0 }}/>
             )}
-            <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
               {/* Circle */}
               <div style={{
-                width:20, height:20, borderRadius:9999, flexShrink:0,
+                width:18, height:18, borderRadius:9999, flexShrink:0,
                 background: active ? col : 'transparent',
                 border: `2px solid ${col}`,
                 display:'flex', alignItems:'center', justifyContent:'center',
               }}>
-                {(done || active) && <Check size={10} color={active ? '#fff' : col}/>}
-                {future && <span style={{ width:5, height:5, borderRadius:9999, background:'hsl(var(--muted-foreground))', opacity:0.4 }}/>}
+                {(done || active) && <Check size={9} color={active ? '#fff' : col}/>}
+                {future && <span style={{ width:4, height:4, borderRadius:9999, background:'hsl(var(--muted-foreground))', opacity:0.4 }}/>}
               </div>
               {/* Label */}
-              <span style={{ fontSize:11.5, fontWeight: active ? 700 : 400, color:labelCol, whiteSpace:'nowrap' }}>
+              <span style={{ fontSize:11, fontWeight: active ? 700 : 400, color:labelCol, whiteSpace:'nowrap' }}>
                 {m.label}
               </span>
             </div>
@@ -1015,7 +1017,7 @@ function ActivityPanel({ requirementId }: { requirementId?: string }) {
   };
 
   return (
-    <div style={{ width:300, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
+    <div style={{ width:350, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
       <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))', flexShrink:0 }}>Activity</div>
       <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px' }}>
         {isLoading && (

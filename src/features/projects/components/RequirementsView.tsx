@@ -271,7 +271,7 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
   const openEditor = useCallback((key?: string) => { setEditKey(key ?? null); setEditorOpen(true); }, []);
 
   if (detailKey) return (
-    <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
+    <div className="flex flex-col overflow-hidden overflow-x-hidden bg-background w-full max-w-full" style={{ height: 'calc(100vh - 75px)' }}>
       <RequirementDetailScreen reqKey={detailKey} projectId={projectId} orgId={orgId} onClose={() => setDetailKey(null)}
         onEdit={key => { setDetailKey(null); openEditor(key); }}
         onImpact={key => setImpactKey(key)} onNavigate={openDetail} onEcoCreated={onEcoCreated} />
