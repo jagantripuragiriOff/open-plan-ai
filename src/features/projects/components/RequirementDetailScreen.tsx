@@ -68,7 +68,7 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 75px)', minHeight:0, width:'100%', maxWidth:'100%', background:'hsl(var(--background))', overflow:'hidden' }}>
       {/* Top bar */}
-      <div style={{ background: 'hsl(var(--card))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0, width:'100%', minWidth:0, overflow:'hidden' }}>
+      <div style={{ background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0, width:'100%', minWidth:0, overflow:'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, minWidth:0 }}>
           <button
             onClick={onClose}
@@ -128,7 +128,7 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
                     background:'transparent', cursor:'pointer', fontFamily:'inherit',
                     fontSize:13, fontWeight: active ? 600 : 400,
                     color: active ? '#3B82F6' : 'hsl(var(--muted-foreground))',
-                    transition:'color .1s', whiteSpace:'nowrap' }}>
+                    transition:'color .1s', whiteSpace:'nowrap', marginBottom: -1, position: 'relative', zIndex: 1 }}>
                   <Ic size={13} color={active ? '#3B82F6' : 'hsl(var(--muted-foreground))'}/>
                   {label}
                   {count != null && count > 0 && (
