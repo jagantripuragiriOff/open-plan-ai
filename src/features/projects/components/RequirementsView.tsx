@@ -270,10 +270,17 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
   const openDetail = useCallback((key: string) => onSelectedKeyChange?.(key), [onSelectedKeyChange]);
   const openEditor = useCallback((key?: string) => { setEditKey(key ?? null); setEditorOpen(true); }, []);
 
+  if (editorOpen) return (
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
+      <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
+        onClose={() => { setEditorOpen(false); setEditKey(null); }}
+        onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
+    </div>
+  );
   if (detailKey) return (
     <div className="flex flex-col overflow-hidden overflow-x-hidden bg-background w-full max-w-full" style={{ height: 'calc(100vh - 75px)' }}>
       <RequirementDetailScreen reqKey={detailKey} projectId={projectId} orgId={orgId} onClose={() => setDetailKey(null)}
-        onEdit={key => { setDetailKey(null); openEditor(key); }}
+        onEdit={key => openEditor(key)}
         onImpact={key => setImpactKey(key)} onNavigate={openDetail} onEcoCreated={onEcoCreated} />
       {/* Rendered here too (not just in the main-view return below) — the
           Impact button lives on the detail screen, so without this the
@@ -282,13 +289,6 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
       {impactKey && (
         <RequirementImpact reqKey={impactKey} projectId={projectId} onClose={() => setImpactKey(null)} onOpen={openDetail} onEcoCreated={onEcoCreated} />
       )}
-    </div>
-  );
-  if (editorOpen) return (
-    <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
-      <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
-        onClose={() => { setEditorOpen(false); setEditKey(null); }}
-        onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
     </div>
   );
 
