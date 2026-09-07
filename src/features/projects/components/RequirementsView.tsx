@@ -270,29 +270,6 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
   const openDetail = useCallback((key: string) => onSelectedKeyChange?.(key), [onSelectedKeyChange]);
   const openEditor = useCallback((key?: string) => { setEditKey(key ?? null); setEditorOpen(true); }, []);
 
-  if (detailKey) return (
-    <>
-      <RequirementDetailScreen reqKey={detailKey} projectId={projectId} orgId={orgId} onClose={() => setDetailKey(null)}
-        onEdit={key => { setDetailKey(null); openEditor(key); }}
-        onImpact={key => setImpactKey(key)} onNavigate={openDetail} onEcoCreated={onEcoCreated} />
-      {/* Rendered here too (not just in the main-view return below) — the
-          Impact button lives on the detail screen, so without this the
-          drawer's state gets set on click but nothing appears until the
-          user navigates away to a return path that does render it. */}
-      {impactKey && (
-        <RequirementImpact reqKey={impactKey} projectId={projectId} onClose={() => setImpactKey(null)} onOpen={openDetail} onEcoCreated={onEcoCreated} />
-      )}
-    </>
-  );
-  if (editorOpen) return (
-    <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
-      onClose={() => { setEditorOpen(false); setEditKey(null); }}
-      onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
-  );
-
-  const showExpandToggle = view === 'table' && !hasActiveFilters(filters) && sortField === 'tree';
-  const activeFilterCount = filterSet?.size ?? null;
-
   if ((treeLoading || groupsLoading) && !apiTree) {
     return (
       <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: 'calc(100vh - 140px)' }}>
@@ -308,8 +285,40 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
     );
   }
 
+  if (editorOpen) return (
+    <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
+      <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
+        onClose={() => { setEditorOpen(false); setEditKey(null); }}
+        onSaved={(newKey) => {
+          setEditorOpen(false);
+          const targetKey = newKey || editKey;
+          setEditKey(null);
+          if (targetKey) {
+            onSelectedKeyChange?.(targetKey);
+          }
+        }} />
+    </div>
+  );
+  if (detailKey) return (
+    <div className="flex flex-col overflow-hidden overflow-x-hidden bg-background w-full max-w-full" style={{ height: 'calc(100vh - 75px)' }}>
+      <RequirementDetailScreen reqKey={detailKey} projectId={projectId} orgId={orgId} onClose={() => setDetailKey(null)}
+        onEdit={key => openEditor(key)}
+        onImpact={key => setImpactKey(key)} onNavigate={openDetail} onEcoCreated={onEcoCreated} />
+      {/* Rendered here too (not just in the main-view return below) — the
+          Impact button lives on the detail screen, so without this the
+          drawer's state gets set on click but nothing appears until the
+          user navigates away to a return path that does render it. */}
+      {impactKey && (
+        <RequirementImpact reqKey={impactKey} projectId={projectId} onClose={() => setImpactKey(null)} onOpen={openDetail} onEcoCreated={onEcoCreated} />
+      )}
+    </div>
+  );
+
+  const showExpandToggle = view === 'table' && !hasActiveFilters(filters) && sortField === 'tree';
+  const activeFilterCount = filterSet?.size ?? null;
+
   return (
-    <div className="flex flex-col px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="flex flex-col px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
 
       {/* ── Fixed header zone (no scroll) ─────────────────────────── */}
       <div className="shrink-0 py-4">
@@ -697,14 +706,29 @@ function TableRow({ r, isExpanded, isSelected, filtersActive, gridStyle, onToggl
       </div>
 
       {/* title (1fr) */}
-      <div onClick={onOpen} style={{
-        fontSize: 12.5, color: 'hsl(var(--foreground))', overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', paddingRight: 8
-      }} title={r.title}>
-        {r.hasGap && (
-          <AlertTriangle size={11} color="#D97706" style={{ marginRight: 4, verticalAlign: 'middle', flexShrink: 0 }} />
+      <div
+        onClick={onOpen}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          minWidth: 0,
+          fontSize: 12.5,
+          color: 'hsl(var(--foreground))',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          paddingRight: 8,
+        }}
+        title={r.title}
+      >
+        {r.hasGap ? (
+          <AlertTriangle size={12} color="#D97706" style={{ flexShrink: 0 }} title="Has gaps" />
+        ) : (
+          <span style={{ width: 12, height: 12, flexShrink: 0 }} aria-hidden="true" />
         )}
-        {r.title}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {r.title}
+        </span>
       </div>
 
       {/* type */}

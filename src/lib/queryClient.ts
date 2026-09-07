@@ -194,8 +194,9 @@ export const queryKeys = {
     list: (projectId: string) => ['requirementGroups', 'list', projectId] as const,
   },
   requirements: {
-    all:  ['requirements'] as const,
-    tree: (projectId: string) => ['requirements', 'tree', projectId] as const,
+    all:    ['requirements'] as const,
+    tree:   (projectId: string) => ['requirements', 'tree', projectId] as const,
+    detail: (requirementId: string) => ['requirements', 'detail', requirementId] as const,
   },
   requirementLinks: {
     all:         ['requirementLinks'] as const,

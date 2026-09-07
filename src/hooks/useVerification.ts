@@ -204,6 +204,7 @@ export function useConfirmVerified(projectId: string, requirementId: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.byRequirement(requirementId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.summary(projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.requirements.tree(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.detail(requirementId) });
     },
   });
 }
@@ -269,6 +270,15 @@ export function useSubmitForVerification(projectId: string, requirementId: strin
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.byRequirement(requirementId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.summary(projectId) });
+      // Submitting can finalize the requirement immediately (a single-approver
+      // pipeline template auto-approves on submit — test-verification.service.ts's
+      // submitForVerification calls setVerified in that branch), so the
+      // requirement's own `status` column can flip to 'verified' right here,
+      // not just on a later decidePipelineStep call. Without this, the tree
+      // query (and anything reading Requirement.status off it, e.g. the
+      // lifecycle stepper) stays stale until something unrelated refetches it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.tree(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.detail(requirementId) });
     },
   });
 }
@@ -285,6 +295,7 @@ export function useDecidePipelineStep(projectId: string, requirementId: string) 
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.byRequirement(requirementId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.verification.summary(projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.requirements.tree(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.detail(requirementId) });
     },
   });
 }

@@ -420,7 +420,7 @@ const SKELETON_LEVELS = [0, 0, 1, 1, 2, 0, 1, 2];
 
 function BOMViewSkeleton() {
   return (
-    <div className="flex flex-col h-full px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="flex flex-col h-full px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
       <div className="shrink-0 py-4">
         <div className="flex gap-2.5 md:gap-3 flex-wrap mb-4">
           {[0, 1, 2, 3].map(i => <StatCardSkeleton key={i} />)}
@@ -1795,7 +1795,8 @@ export function BOMView({
     // silently surface the wrong part.
     const node = (selectedNode && (!fallbackPartId || selectedNode._partId === fallbackPartId) ? selectedNode : null)
       || (fallbackPartId ? allNodes.find(n => n._partId === fallbackPartId) ?? null : null)
-      || (fallbackPn ? allNodes.find(n => n.pn === fallbackPn) ?? null : null);
+      || (fallbackPn ? allNodes.find(n => n.pn === fallbackPn || n.pn.toLowerCase() === fallbackPn.toLowerCase()) ?? null : null)
+      || (selected ? allNodes.find(n => n.pn === selected || n.pn.toLowerCase() === selected.toLowerCase() || n._partId === selected || n.id === selected) ?? null : null);
     if (node) return (
       <BOMDetailScreen
         node={node}
@@ -1850,7 +1851,7 @@ export function BOMView({
   };
 
   return (
-    <div className="flex flex-col h-full px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="flex flex-col h-full px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
       {/* ── Fixed header zone (no scroll) ─────────────────────────── */}
       <div className="shrink-0 py-4">
         {/* Stat cards */}

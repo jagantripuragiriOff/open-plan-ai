@@ -20,8 +20,8 @@ export const PROJECT_TAB_DEFINITIONS: Record<ProjectTabId, ProjectTabDefinition>
 };
 
 export const DEFAULT_PROJECT_TAB_ORDER: ProjectTabId[] = [
-  'bom',
   'requirements',
+  'bom',
   'eng-changes',
   'tasks',
   'modules',

@@ -312,8 +312,9 @@ export function RequirementECOSheet({
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent
-        className="max-w-[1050px] w-[90vw] p-0 gap-0 flex flex-col overflow-hidden"
-        style={{ maxHeight: '88vh', minHeight: '70vh' }}
+        overlayClassName="z-[3000]"
+        className="z-[3001] max-w-[1050px] w-[90vw] p-0 gap-0 flex flex-col overflow-hidden"
+        style={{ zIndex: 3001, maxHeight: '88vh', minHeight: '70vh' }}
       >
         <DialogHeader className="px-7 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">

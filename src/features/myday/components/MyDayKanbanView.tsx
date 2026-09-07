@@ -103,7 +103,7 @@ export function MyDayKanbanView({ tasks: initialTasks, onTaskClick, onStatusUpda
     if (item.itemType === 'task' && item.originalTask) {
       updatedItem = { ...item, status: newStatus, originalTask: { ...item.originalTask, status: newStatus } };
     } else if (item.itemType === 'issue' && item.originalIssue) {
-      const mappedStatus = ISSUE_STATUS_BY_COLUMN[destinationColumnId];
+      const mappedStatus = ISSUE_STATUS_BY_COLUMN[destinationColumnId] ?? 'open';
       updatedItem = { ...item, status: mappedStatus, originalIssue: { ...item.originalIssue, status: mappedStatus as typeof item.originalIssue.status } };
     }
 
