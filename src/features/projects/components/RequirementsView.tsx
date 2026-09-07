@@ -270,6 +270,21 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
   const openDetail = useCallback((key: string) => onSelectedKeyChange?.(key), [onSelectedKeyChange]);
   const openEditor = useCallback((key?: string) => { setEditKey(key ?? null); setEditorOpen(true); }, []);
 
+  if ((treeLoading || groupsLoading) && !apiTree) {
+    return (
+      <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: 'calc(100vh - 140px)' }}>
+        Loading requirements…
+      </div>
+    );
+  }
+  if (treeError) {
+    return (
+      <div className="flex items-center justify-center text-sm text-destructive" style={{ height: 'calc(100vh - 140px)' }}>
+        Failed to load requirements.
+      </div>
+    );
+  }
+
   if (editorOpen) return (
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
       <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
@@ -301,21 +316,6 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
 
   const showExpandToggle = view === 'table' && !hasActiveFilters(filters) && sortField === 'tree';
   const activeFilterCount = filterSet?.size ?? null;
-
-  if ((treeLoading || groupsLoading) && !apiTree) {
-    return (
-      <div className="flex items-center justify-center text-sm text-muted-foreground" style={{ height: 'calc(100vh - 140px)' }}>
-        Loading requirements…
-      </div>
-    );
-  }
-  if (treeError) {
-    return (
-      <div className="flex items-center justify-center text-sm text-destructive" style={{ height: 'calc(100vh - 140px)' }}>
-        Failed to load requirements.
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
