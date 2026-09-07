@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft, PenLine, GitPullRequest, ChevronRight, Check, X, Plus,
   Unlink, PackageX, FlaskConical, AlertTriangle, Send, ChevronDown,
@@ -18,7 +19,8 @@ import {
 } from './RequirementsShared';
 import {
   useCreateRequirementLink, useDeleteRequirementLink,
-  type RequirementLinkType,
+  useRequirementDetail, useAddRequirementComment,
+  type RequirementLinkType, type ApiRequirementActivity,
 } from '@/hooks/useRequirements';
 import {
   useRequirementVerification, useCreateTestCase, useRecordExecution, useConfirmVerified,
@@ -156,7 +158,7 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
           {tab === 'trace'    && <TraceTab    r={r} projectId={projectId} onNavigate={onNavigate}/>}
           {tab === 'verify'   && <VerifyTab   r={r} projectId={projectId} orgId={orgId} onEcoCreated={onEcoCreated}/>}
         </div>
-        {activityOpen && <ActivityPanel reqKey={r.key}/>}
+        {activityOpen && <ActivityPanel requirementId={r._id}/>}
       </div>
     </div>
   );
@@ -983,36 +985,75 @@ function AIQualityPanel({ ai, req }: { ai: ReturnType<typeof analyzeQuality>; re
 }
 
 // ── Activity panel ─────────────────────────────────────────────────────────────
-const MOCK_ACTIVITY = [
-  { actor:'SA', color:'#7C3AED', action:'approved this requirement', ago:'2h ago' },
-  { actor:'ML', color:'#2563EB', action:'changed priority to High', ago:'1d ago' },
-  { actor:'KA', color:'#059669', action:'linked test case TC-SYS-001', ago:'2d ago' },
-  { actor:'JP', color:'#D97706', action:'added rationale', ago:'3d ago' },
-  { actor:'SA', color:'#7C3AED', action:'created this requirement', ago:'5d ago' },
-];
+// Backed by the real `activities` table (requirements.service.ts embeds it on
+// GET /requirements/:id) — field-level edits, status changes, test-case links,
+// verification sign-off, BOM allocation, and posted comments all land in this
+// one feed server-side, so there's nothing to merge client-side beyond mapping
+// each row to an actor avatar + relative timestamp.
 
-function ActivityPanel({ reqKey }: { reqKey:string }) {
+const ACTIVITY_ACTOR_COLORS = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#DB2777', '#65A30D'];
+function colorForActor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ACTIVITY_ACTOR_COLORS[h % ACTIVITY_ACTOR_COLORS.length];
+}
+function initialsOf(name: string | null): string {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function ActivityPanel({ requirementId }: { requirementId?: string }) {
   const [comment, setComment] = useState('');
+  const { data: detail, isLoading } = useRequirementDetail(requirementId);
+  const addComment = useAddRequirementComment(requirementId ?? '');
+  const activities: ApiRequirementActivity[] = detail?.activities ?? [];
+
+  const handleSend = () => {
+    const content = comment.trim();
+    if (!content || !requirementId) return;
+    addComment.mutate(content, { onSuccess: () => setComment('') });
+  };
 
   return (
     <div style={{ width:300, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
       <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))', flexShrink:0 }}>Activity</div>
       <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px' }}>
-        {MOCK_ACTIVITY.map((a,i) => (
-          <div key={i} style={{ display:'flex', gap:9, marginBottom:14 }}>
-            <span style={{ width:26, height:26, borderRadius:9999, flexShrink:0, background:softTint(a.color,0.18), color:a.color, fontSize:9.5, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', border:`1px solid ${softTint(a.color,0.3)}` }}>{a.actor}</span>
-            <div>
-              <span style={{ fontSize:12.5, color:'hsl(var(--foreground))' }}>{a.action}</span>
-              <div style={{ fontSize:11, color:'hsl(var(--muted-foreground))', marginTop:2 }}>{a.ago}</div>
+        {isLoading && (
+          <div style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>Loading…</div>
+        )}
+        {!isLoading && activities.length === 0 && (
+          <div style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>No activity yet.</div>
+        )}
+        {activities.map((a) => {
+          const color = a.userId ? colorForActor(a.userId) : '#888';
+          const initials = initialsOf(a.userName);
+          return (
+            <div key={a.id} style={{ display:'flex', gap:9, marginBottom:14 }}>
+              <span style={{ width:26, height:26, borderRadius:9999, flexShrink:0, background:softTint(color,0.18), color, fontSize:9.5, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', border:`1px solid ${softTint(color,0.3)}` }}>{initials}</span>
+              <div style={{ minWidth:0 }}>
+                <span style={{ fontSize:12.5, color:'hsl(var(--foreground))' }}>
+                  <strong style={{ fontWeight:600 }}>{a.userName ?? 'Someone'}</strong> {a.title}
+                </span>
+                {a.type === 'requirement_commented' && a.description && (
+                  <div style={{ fontSize:12, color:'hsl(var(--foreground))', background:'hsl(var(--muted))', borderRadius:7, padding:'6px 9px', marginTop:5, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                    {a.description}
+                  </div>
+                )}
+                <div style={{ fontSize:11, color:'hsl(var(--muted-foreground))', marginTop:2 }}>
+                  {formatDistanceToNow(new Date(a.createdAt), { addSuffix:true })}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))', flexShrink:0, background:'hsl(var(--card))' }}>
         <div style={{ display:'flex', gap:7 }}>
           <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Leave a comment…" rows={2}
+            disabled={addComment.isPending || !requirementId}
             style={{ flex:1, resize:'none', borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--background))', color:'hsl(var(--foreground))', padding:'7px 9px', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.45 }}/>
-          <button onClick={() => setComment('')} style={{ alignSelf:'flex-end', width:30, height:30, borderRadius:7, border:'none', background:'hsl(var(--foreground))', color:'hsl(var(--background))', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <button onClick={handleSend} disabled={!comment.trim() || addComment.isPending || !requirementId}
+            style={{ alignSelf:'flex-end', width:30, height:30, borderRadius:7, border:'none', background:'hsl(var(--foreground))', color:'hsl(var(--background))', cursor: !comment.trim() || addComment.isPending ? 'default' : 'pointer', opacity: !comment.trim() || addComment.isPending ? 0.5 : 1, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Send size={13}/>
           </button>
         </div>

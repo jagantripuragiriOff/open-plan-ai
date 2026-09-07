@@ -290,6 +290,7 @@ export const ENDPOINTS = {
     UPDATE: (requirementId: string) => `/requirements/${requirementId}`,
     DELETE: (requirementId: string) => `/requirements/${requirementId}`,
     LINKS:  (requirementId: string) => `/requirements/${requirementId}/links`,
+    COMMENTS: (requirementId: string) => `/requirements/${requirementId}/comments`,
   },
   // Requirement links (requirement <-> requirement graph edges)
   REQUIREMENT_LINKS: {

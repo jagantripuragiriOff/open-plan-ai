@@ -44,6 +44,36 @@ export interface ApiRequirementTreeItem {
   depth: number;
 }
 
+export interface ApiRequirementActivity {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  userId: string | null;
+  userName: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ApiRequirementDetail extends Omit<ApiRequirementTreeItem, 'depth'> {
+  activities: ApiRequirementActivity[];
+}
+
+export interface ApiRequirementCommentAuthor {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  initials: string | null;
+}
+
+export interface ApiRequirementComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  author: ApiRequirementCommentAuthor | null;
+}
+
 export interface LinkedRequirementSummary {
   id: string;
   key: string;
@@ -155,6 +185,37 @@ export function useDeleteRequirement(projectId: string) {
       apiClient.delete<void>(ENDPOINTS.REQUIREMENTS.DELETE(requirementId)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.requirements.tree(projectId) });
+    },
+  });
+}
+
+// ─── Requirement detail (single fetch, incl. embedded activity feed) ──────────
+// Only fetched by RequirementDetailScreen when it opens — the bulk tree fetch
+// (useRequirementTree) doesn't carry activities, since those are a detail-only
+// concern and would be wasted on every row of the tree/table/map views.
+
+export function useRequirementDetail(requirementId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.requirements.detail(requirementId ?? ''),
+    queryFn: () => apiClient.get<ApiRequirementDetail>(ENDPOINTS.REQUIREMENTS.BY_ID(requirementId!)),
+    enabled: !!requirementId,
+    staleTime: 15 * 1000,
+  });
+}
+
+// ─── Requirement comments ───────────────────────────────────────────────────────
+// Posting a comment also logs a `requirement_commented` activity row on the
+// backend (comments.service.ts), so it shows up for free in the same
+// `activities` array returned by useRequirementDetail above — no separate
+// comment list needs to be fetched/merged on the frontend.
+
+export function useAddRequirementComment(requirementId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      apiClient.post<ApiRequirementComment>(ENDPOINTS.REQUIREMENTS.COMMENTS(requirementId), { content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.detail(requirementId) });
     },
   });
 }
