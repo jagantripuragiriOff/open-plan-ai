@@ -591,7 +591,7 @@ export default function ProjectDetail() {
   // /modules/:moduleId, /milestones/:milestoneId, and /issues/:issueId routes
   // encode the section as a literal path segment rather than the generic :tab
   // param, so infer it from which item id is present.
-  const ALL_SECTIONS: ProjectSection[] = ['bom', 'requirements', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
+  const ALL_SECTIONS: ProjectSection[] = ['requirements', 'bom', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
   const section: ProjectSection = partId
     ? 'bom'
     : reqKey
@@ -608,7 +608,7 @@ export default function ProjectDetail() {
                 ? 'issues'
                 : ALL_SECTIONS.includes(tabParam as ProjectSection)
                   ? (tabParam as ProjectSection)
-                  : 'bom';
+                  : 'requirements';
 
   // Board column definitions are only rendered on their own tab (Tasks status
   // filter / Issues status filter) — gating avoids fetching them on every tab

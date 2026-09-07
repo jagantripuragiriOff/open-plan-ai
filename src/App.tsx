@@ -68,12 +68,12 @@ const ReactQueryDevtools = import.meta.env.DEV
   : null;
 
 // Normalizes legacy `/projects/:id?tab=X` links to the canonical `/projects/:id/X` path.
-const PROJECT_SECTIONS = ['bom', 'requirements', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
+const PROJECT_SECTIONS = ['requirements', 'bom', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
 function ProjectLegacyTabRedirect() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab');
-  const target = tab && PROJECT_SECTIONS.includes(tab) ? tab : 'bom';
+  const target = tab && PROJECT_SECTIONS.includes(tab) ? tab : 'requirements';
   return <Navigate to={`/projects/${id}/${target}`} replace />;
 }
 
