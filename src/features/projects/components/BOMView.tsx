@@ -1543,14 +1543,19 @@ export function BOMView({
     node: Awaited<ReturnType<typeof createNode.mutateAsync>>;
   } | null>(null);
 
-  // partIds already used anywhere in this BOM — the catalog picker flags them.
-  const existingBomPartIds = useMemo(
-    () => new Set(allNodes.map(n => n._partId).filter((id): id is string => !!id)),
-    [allNodes],
+  // A part can sit in many projects and at several places in one BOM, but not
+  // twice as a top-level line — the picker disables parts already at root level.
+  const topLevelPartIds = useMemo(
+    () => new Set(rootNodes.map(n => n._partId).filter((id): id is string => !!id)),
+    [rootNodes],
   );
 
-  // ── Quick-add an existing catalog part as a Draft BOM line (editable in the row) ─
+  // ── Quick-add an existing catalog part as a Draft top-level BOM line (editable in the row) ─
   const handleAddExistingPart = async (part: ApiPartResponse) => {
+    if (topLevelPartIds.has(part.id)) {
+      toast.error(`${part.partNumber} is already a top-level part in this BOM`);
+      return;
+    }
     try {
       await createNode.mutateAsync({
         partId: part.id,
@@ -2237,7 +2242,8 @@ export function BOMView({
           open={addPickerOpen}
           onClose={() => { setAddPickerOpen(false); onAddClose?.(); }}
           orgId={orgId}
-          existingPartIds={existingBomPartIds}
+          disabledPartIds={topLevelPartIds}
+          disabledReason="Already a top-level part"
           onSelect={handleAddExistingPart}
           onCreateNew={() => { setAddPickerOpen(false); setAddManualOpen(true); }}
         />
