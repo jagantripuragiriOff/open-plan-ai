@@ -65,28 +65,27 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'hsl(var(--background))' }}>
       {/* Top bar */}
-      <div style={{ borderBottom:'1px solid hsl(var(--border))', background:'hsl(var(--card))', padding:'10px 16px 0', display:'flex', flexDirection:'column', gap:0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+      <div style={{ background: 'hsl(var(--card))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <button
             onClick={onClose}
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: '1px solid hsl(var(--border))',
-              background: 'hsl(var(--card))',
+              background: 'transparent',
+              border: 'none',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              padding: 4,
+              borderRadius: 6,
               flexShrink: 0,
               transition: 'background .1s',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--muted))')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'hsl(var(--card))')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             title="Back"
           >
-            <ArrowLeft size={16} color="hsl(var(--muted-foreground))" />
+            <ArrowLeft size={18} color="hsl(var(--muted-foreground))" />
           </button>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
