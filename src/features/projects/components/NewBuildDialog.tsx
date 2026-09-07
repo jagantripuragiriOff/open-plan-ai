@@ -67,7 +67,7 @@ const buildSchema = z.object({
 
 type BuildFormData = z.infer<typeof buildSchema>;
 
-export type NewBuildInput = Omit<BuildDef, 'id' | 'assignee'> & { projectId: string; assigneeId: string };
+export type NewBuildInput = Omit<BuildDef, 'id' | 'assignee' | 'milestone'> & { projectId: string; assigneeId: string; milestone?: string };
 
 interface NewBuildDialogProps {
   isOpen: boolean;
@@ -142,7 +142,7 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
       units: data.units,
       bomRev: data.bomRev.trim(),
       scrapPct: data.scrapPct,
-      milestone: data.milestone?.trim() || `${data.name.trim()} Complete`,
+      milestone: data.milestone?.trim() || undefined,
       targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : undefined,
       projectId: data.projectId,
       assigneeId: data.assigneeId,

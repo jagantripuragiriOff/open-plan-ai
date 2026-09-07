@@ -186,8 +186,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}% · linked to{' '}
-                <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}%
+                {selectedBuild.linkedMilestone && (
+                  <>
+                    {' '}· linked to <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                  </>
+                )}
                 {selectedBuild.assignee && (
                   <>
                     {' '}· Assigned to <span className="font-medium text-foreground">{selectedBuild.assignee.name}</span>
@@ -214,8 +218,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
                   <Flag className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                   <p>
                     Shortage lead time pushes the projected ready date{' '}
-                    <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target — milestone{' '}
-                    <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
+                    <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target
+                    {selectedBuild.linkedMilestone ? (
+                      <>
+                        {' '}— milestone <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
+                      </>
+                    ) : ' on the schedule.'}
                   </p>
                 </div>
               )}
@@ -377,8 +385,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}% · linked to{' '}
-              <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+              BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}%
+              {selectedBuild.linkedMilestone && (
+                <>
+                  {' '}· linked to <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                </>
+              )}
               {selectedBuild.assignee && (
                 <>
                   {' '}· Assigned to <span className="font-medium text-foreground">{selectedBuild.assignee.name}</span>
@@ -410,8 +422,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
             <Flag className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <p>
               Shortage lead time pushes the projected ready date{' '}
-              <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target — milestone{' '}
-              <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
+              <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target
+              {selectedBuild.linkedMilestone ? (
+                <>
+                  {' '}— milestone <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
+                </>
+              ) : ' on the schedule.'}
             </p>
           </div>
         )}
