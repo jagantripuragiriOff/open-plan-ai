@@ -107,7 +107,7 @@ const SECTIONS: Section[] = [
       {
         id: 'requirements',
         name: 'Requirements',
-        badge: '(BETA)',
+        badge: 'BETA',
         description: 'Trace requirements through tasks, modules, and ECOs for full coverage.',
         logo: { kind: 'icon', icon: ClipboardList },
         color: '#2563EB',
@@ -526,12 +526,15 @@ export default function Integrations() {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 mb-1">
+                      <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium text-foreground">{integration.name}</h3>
                         {integration.badge && (
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {integration.badge}
-                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 h-4.5 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                          >
+                            {integration.badge.replace(/[()]/g, '')}
+                          </Badge>
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground flex-1">
