@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/popover';
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -40,12 +39,13 @@ import {
 } from '@/components/ui/form';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { cn } from '@/lib/utils';
-import { Boxes, Camera, Check, ChevronsUpDown, Clock, ImagePlus, Minus, Pencil, Plus, ShoppingCart, Upload, X } from 'lucide-react';
+import { Boxes, Camera, Check, ChevronsUpDown, Clock, ImagePlus, Pencil, Plus, ShoppingCart, Upload, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useCreatePart, useUpdatePart, usePartCatalogSearch } from '@/hooks/useParts';
+import { useUpdatePart, usePartCatalogSearch } from '@/hooks/useParts';
 import { useLocations } from '@/hooks/useLocations';
 import { type ApiPartResponse, type BOMCategory, getCategoryMeta } from './bomData';
-import { LocationHierarchyPicker, LockedLocationField, CategoryCombobox, UnitCombobox, type StockLocation, type StockRecord } from './inventoryData';
+import { LocationHierarchyPicker, LockedLocationField, CategoryCombobox, type StockLocation, type StockRecord } from './inventoryData';
+import { InventoryPartSheet } from './InventoryPartSheet';
 import type { PlaceOrderInput } from './PlaceOrderDialog';
 
 interface PickerPart {
@@ -136,8 +136,6 @@ interface AdjustQuantityDialogProps {
   canonicalLocationByPartId?: Map<string, string>;
 }
 
-const emptyNewPart = { partNumber: '', name: '', description: '', category: '' as BOMCategory | '', manufacturer: '', mpn: '', unit: 'EA' };
-
 /** Max images that can be attached to a "New transaction" / order. */
 const MAX_IMAGES = 10;
 
@@ -150,7 +148,6 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
   // Only surface the "select a part" hint after the user has actually tried to submit —
   // showing it permanently on an untouched form is just noise.
   const [triedSubmit, setTriedSubmit] = useState(false);
-  const [newPart, setNewPart] = useState(emptyNewPart);
   const [createdPart, setCreatedPart] = useState<{ id: string; partNumber: string; name: string; category: BOMCategory } | null>(null);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
@@ -165,7 +162,6 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
   // Reset in resetAndClose() so a reopened dialog can submit again.
   const isSubmittingRef = useRef(false);
 
-  const createPart = useCreatePart(orgId);
   const updatePart = useUpdatePart();
   const { data: locations = [] } = useLocations(orgId);
 
@@ -299,19 +295,9 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialPartId, pickerParts]);
 
-  // Merely opening the "Add new part" panel isn't an unsaved change — only count it
-  // dirty once the user has actually typed something into one of its fields.
-  const isNewPartDirty =
-    showAddPart &&
-    (newPart.partNumber.trim() !== '' ||
-      newPart.name.trim() !== '' ||
-      newPart.description.trim() !== '' ||
-      newPart.category !== '' ||
-      newPart.manufacturer.trim() !== '' ||
-      newPart.mpn.trim() !== '' ||
-      newPart.unit !== 'EA');
-
-  const isFormDirty = form.formState.isDirty || isNewPartDirty || images.length > 0;
+  // The "Add new part" wizard (InventoryPartSheet) tracks its own unsaved-changes
+  // confirmation, so it doesn't feed this dialog's dirty check.
+  const isFormDirty = form.formState.isDirty || images.length > 0;
 
   const applyImageFiles = (files: File[]) => {
     const valid = files.filter((f) => f.type.startsWith('image/'));
@@ -449,7 +435,6 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
     setSelectedRecord(null);
     setShowAddPart(false);
     setTriedSubmit(false);
-    setNewPart(emptyNewPart);
     setCreatedPart(null);
     clearImages();
     handleCloseCamera();
@@ -465,35 +450,14 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
     }
   };
 
-  const handleCreatePart = async () => {
-    if (!newPart.partNumber.trim() || !newPart.name.trim() || !newPart.category) {
-      toast.error('Part number, name, and category are required');
-      return;
-    }
-    try {
-      const created = await createPart.mutateAsync({
-        partNumber: newPart.partNumber.trim(),
-        name: newPart.name.trim(),
-        description: newPart.description.trim() || newPart.name.trim(),
-        category: newPart.category,
-        manufacturer: newPart.manufacturer.trim() || undefined,
-        mpn: newPart.mpn.trim() || undefined,
-        unit: newPart.unit || 'EA',
-      });
-      setSelectedRecord(null);
-      setCreatedPart({ id: created.id, partNumber: created.partNumber, name: created.name, category: created.category });
-      form.setValue('partId', created.id, { shouldDirty: true, shouldValidate: true });
-      form.setValue('category', created.category, { shouldDirty: true, shouldValidate: true });
-      setShowAddPart(false);
-      setNewPart(emptyNewPart);
-      toast.success(`Part ${created.partNumber} created`);
-    } catch (err) {
-      // apiClient surfaces the backend's error.message (e.g. "Part number 'CMP-0405-IMU'
-      // already exists") on the thrown Error — show that instead of a generic failure.
-      const reason =
-        err instanceof Error && err.message ? err.message : 'Failed to create part';
-      toast.error(reason);
-    }
+  // The "Add new part" wizard reports the created catalog part back here; select it
+  // into the form just like picking an existing part.
+  const handlePartCreated = (created: ApiPartResponse) => {
+    setSelectedRecord(null);
+    setCreatedPart({ id: created.id, partNumber: created.partNumber, name: created.name, category: created.category });
+    form.setValue('partId', created.id, { shouldDirty: true, shouldValidate: true });
+    form.setValue('category', created.category, { shouldDirty: true, shouldValidate: true });
+    setShowAddPart(false);
   };
 
   const handleSubmit = async (data: AdjustFormData) => {
@@ -647,23 +611,20 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
                   control={form.control}
                   name="partId"
                   render={() => (
-                    <FormItem className={cn(showAddPart && 'sm:col-span-2')}>
+                    <FormItem>
                       <div className="flex h-5 items-center justify-between gap-2">
                         <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Part <span className="text-destructive" aria-hidden="true">*</span></FormLabel>
-                        {!showAddPart && (
-                          <button
-                            type="button"
-                            className="flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-primary hover:text-primary/80"
-                            onClick={() => setShowAddPart(true)}
-                          >
-                            <Plus className="h-3 w-3" />
-                            Add new part
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="flex shrink-0 items-center gap-1 text-xs font-medium leading-none text-primary hover:text-primary/80"
+                          onClick={() => setShowAddPart(true)}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add new part
+                        </button>
                       </div>
 
-                      {!showAddPart ? (
-                        <Popover
+                      <Popover
                           open={partPickerOpen}
                           onOpenChange={(open) => {
                             setPartPickerOpen(open);
@@ -761,85 +722,13 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
                             </Command>
                           </PopoverContent>
                         </Popover>
-                      ) : (
-                        <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">New part</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => { setShowAddPart(false); setNewPart(emptyNewPart); }}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs">Part Number *</Label>
-                              <Input
-                                value={newPart.partNumber}
-                                onChange={(e) => setNewPart(prev => ({ ...prev, partNumber: e.target.value.toUpperCase() }))}
-                                placeholder="e.g. EV-PWR-099"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs">Name *</Label>
-                              <Input
-                                value={newPart.name}
-                                onChange={(e) => setNewPart(prev => ({ ...prev, name: e.target.value }))}
-                                placeholder="Part name"
-                              />
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                              <Label className="text-xs">Category *</Label>
-                              <CategoryCombobox
-                                value={newPart.category}
-                                onChange={(v) => setNewPart(prev => ({ ...prev, category: v as BOMCategory | '' }))}
-                                extraCategories={extraCategories}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs">Unit</Label>
-                              <UnitCombobox
-                                value={newPart.unit}
-                                onChange={(v) => setNewPart(prev => ({ ...prev, unit: v }))}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs">Manufacturer</Label>
-                              <Input
-                                value={newPart.manufacturer}
-                                onChange={(e) => setNewPart(prev => ({ ...prev, manufacturer: e.target.value }))}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label className="text-xs">MPN</Label>
-                              <Input
-                                value={newPart.mpn}
-                                onChange={(e) => setNewPart(prev => ({ ...prev, mpn: e.target.value }))}
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="w-full"
-                            disabled={createPart.isPending}
-                            onClick={handleCreatePart}
-                          >
-                            {createPart.isPending ? 'Creating...' : 'Create & select part'}
-                          </Button>
-                        </div>
-                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 )}
 
-                {!showAddPart && !initialPartId && (
+                {!initialPartId && (
                   <FormField
                     control={form.control}
                     name="category"
@@ -1315,6 +1204,14 @@ export function AdjustQuantityDialog({ isOpen, onClose, orgId, stock, parts, onA
         confirmText="Discard"
         cancelText="Keep Editing"
         variant="destructive"
+      />
+
+      <InventoryPartSheet
+        open={showAddPart}
+        onClose={() => setShowAddPart(false)}
+        orgId={orgId}
+        extraCategories={extraCategories}
+        onCreated={handlePartCreated}
       />
     </Dialog>
   );
