@@ -697,14 +697,29 @@ function TableRow({ r, isExpanded, isSelected, filtersActive, gridStyle, onToggl
       </div>
 
       {/* title (1fr) */}
-      <div onClick={onOpen} style={{
-        fontSize: 12.5, color: 'hsl(var(--foreground))', overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', paddingRight: 8
-      }} title={r.title}>
-        {r.hasGap && (
-          <AlertTriangle size={11} color="#D97706" style={{ marginRight: 4, verticalAlign: 'middle', flexShrink: 0 }} />
+      <div
+        onClick={onOpen}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          minWidth: 0,
+          fontSize: 12.5,
+          color: 'hsl(var(--foreground))',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          paddingRight: 8,
+        }}
+        title={r.title}
+      >
+        {r.hasGap ? (
+          <AlertTriangle size={12} color="#D97706" style={{ flexShrink: 0 }} title="Has gaps" />
+        ) : (
+          <span style={{ width: 12, height: 12, flexShrink: 0 }} aria-hidden="true" />
         )}
-        {r.title}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {r.title}
+        </span>
       </div>
 
       {/* type */}
