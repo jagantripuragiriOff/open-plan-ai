@@ -24,8 +24,65 @@ interface FormState {
   groupId: string; parentId: string;
 }
 
+export interface ParsedEARS {
+  pattern: 'ubiquitous' | 'event' | 'state' | 'optional' | 'unwanted' | 'complex' | 'free';
+  subject: string;
+  response: string;
+  trigger: string;
+  state: string;
+  feature: string;
+  condition: string;
+}
+
+export function parseEARSStatement(text: string): ParsedEARS {
+  const clean = (text || '').trim().replace(/\s*\.\s*$/, '');
+  if (!clean) {
+    return { pattern: 'ubiquitous', subject: 'system', response: '', trigger: '', state: '', feature: '', condition: '' };
+  }
+
+  const complexMatch = clean.match(/^While\s+(.+?),\s*when\s+(.+?),\s*(?:the\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (complexMatch) {
+    return { pattern: 'complex', state: complexMatch[1].trim(), trigger: complexMatch[2].trim(), subject: complexMatch[3].trim(), response: complexMatch[4].trim(), feature: '', condition: '' };
+  }
+
+  const eventMatch = clean.match(/^When\s+(.+?),\s*(?:the\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (eventMatch) {
+    return { pattern: 'event', trigger: eventMatch[1].trim(), subject: eventMatch[2].trim(), response: eventMatch[3].trim(), state: '', feature: '', condition: '' };
+  }
+
+  const stateMatch = clean.match(/^While\s+(.+?),\s*(?:the\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (stateMatch) {
+    return { pattern: 'state', state: stateMatch[1].trim(), subject: stateMatch[2].trim(), response: stateMatch[3].trim(), trigger: '', feature: '', condition: '' };
+  }
+
+  const optionalMatch = clean.match(/^Where\s+(.+?),\s*(?:the\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (optionalMatch) {
+    return { pattern: 'optional', feature: optionalMatch[1].trim(), subject: optionalMatch[2].trim(), response: optionalMatch[3].trim(), trigger: '', state: '', condition: '' };
+  }
+
+  const unwantedMatch = clean.match(/^If\s+(.+?),\s*(?:then\s+)?(?:the\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (unwantedMatch) {
+    return { pattern: 'unwanted', condition: unwantedMatch[1].trim(), subject: unwantedMatch[2].trim(), response: unwantedMatch[3].trim(), trigger: '', state: '', feature: '' };
+  }
+
+  const ubiMatch = clean.match(/^(?:The\s+)?(.+?)\s+shall\s+(.+)$/i);
+  if (ubiMatch) {
+    return { pattern: 'ubiquitous', subject: ubiMatch[1].trim(), response: ubiMatch[2].trim(), trigger: '', state: '', feature: '', condition: '' };
+  }
+
+  return { pattern: 'free', subject: 'system', response: clean, trigger: '', state: '', feature: '', condition: '' };
+}
+
+const DEFAULT_PAT_FIELDS: Record<string, { trigger?: string; state?: string; feature?: string; condition?: string }> = {
+  event: { trigger: 'a vehicle is connected' },
+  state: { state: 'charging at rated power' },
+  optional: { feature: 'card payment is enabled' },
+  unwanted: { condition: 'a ground fault is detected' },
+  complex: { state: 'a session is active', trigger: 'the e-stop is pressed' },
+};
+
 const defaultForm = (defaultGroupId: string): FormState => ({
-  pattern:'ubiquitous', subject:'system', response:'', trigger:'', state:'', feature:'', condition:'', free:'',
+  pattern:'ubiquitous', subject:'system', response:'provide the specified functionality', trigger:'a vehicle is connected', state:'charging at rated power', feature:'card payment is enabled', condition:'a ground fault is detected', free:'',
   title:'',
   type:'system-req', category:'functional', priority:'medium', status:'draft', vmethod:'test',
   owner: REQ_TEAM[0]?.id ?? '', rationale:'', targetValue:'', targetTolerance:'', targetUnit:'',
@@ -75,8 +132,19 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
   const existing = reqKey ? BY_KEY[reqKey] : null;
   const [form, setForm] = useState<FormState>(() => {
     if (!existing) return defaultForm(groups[0]?.id ?? '');
+
+    const parsed = parseEARSStatement(existing.statement);
+    const patKey = parsed.pattern !== 'free' ? parsed.pattern : 'ubiquitous';
+    const defaults = DEFAULT_PAT_FIELDS[patKey] ?? {};
+
     return {
-      pattern:'free', subject:'system', response:'', trigger:'', state:'', feature:'', condition:'',
+      pattern: parsed.pattern,
+      subject: parsed.subject || 'system',
+      response: parsed.response || existing.statement,
+      trigger: parsed.trigger || defaults.trigger || 'a vehicle is connected',
+      state: parsed.state || defaults.state || 'charging at rated power',
+      feature: parsed.feature || defaults.feature || 'card payment is enabled',
+      condition: parsed.condition || defaults.condition || 'a ground fault is detected',
       free: existing.statement,
       title: existing.title,
       type: existing.type, category: existing.category, priority: existing.priority,
@@ -91,6 +159,32 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
   });
 
   const upd = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm(p => ({ ...p, [k]: v }));
+
+  const handlePatternSelect = (k: string) => {
+    setForm(prev => {
+      const defaults = DEFAULT_PAT_FIELDS[k] ?? {};
+      let currentResp = prev.response || prev.free;
+      let currentSubj = prev.subject || 'system';
+
+      if (!currentResp && existing?.statement) {
+        const parsed = parseEARSStatement(existing.statement);
+        currentResp = parsed.response || existing.statement;
+        if (parsed.subject) currentSubj = parsed.subject;
+      }
+
+      return {
+        ...prev,
+        pattern: k,
+        subject: currentSubj,
+        response: currentResp || (existing ? existing.statement : 'provide the specified functionality'),
+        trigger: prev.trigger || defaults.trigger || 'a vehicle is connected',
+        state: prev.state || defaults.state || 'charging at rated power',
+        feature: prev.feature || defaults.feature || 'card payment is enabled',
+        condition: prev.condition || defaults.condition || 'a ground fault is detected',
+        free: currentResp || prev.free,
+      };
+    });
+  };
   const preview = previewStatement(form);
   // Live AI quality panel is commented out for now (see below) — commenting this
   // out too so it doesn't compute on every keystroke for nothing.
@@ -189,7 +283,7 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
                 {Object.keys(EARS).map(k => {
                   const p = EARS[k]; const Ic = PATTERN_ICONS[k] ?? PenLine; const active = form.pattern === k;
                   return (
-                    <button key={k} onClick={() => upd('pattern', k)}
+                    <button key={k} onClick={() => handlePatternSelect(k)}
                       className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-colors',
                         active ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-border bg-card text-foreground font-normal hover:bg-muted')}>
                       <Ic className="w-3 h-3" />{p.label}
