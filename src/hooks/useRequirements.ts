@@ -172,8 +172,14 @@ export function useUpdateRequirement(projectId: string) {
   return useMutation({
     mutationFn: ({ requirementId, payload }: { requirementId: string; payload: UpdateRequirementPayload }) =>
       apiClient.patch<ApiRequirementTreeItem>(ENDPOINTS.REQUIREMENTS.UPDATE(requirementId), payload),
-    onSuccess: () => {
+    onSuccess: (_data, { requirementId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.requirements.tree(projectId) });
+      // Every field change (status included) now also lands as a row in the
+      // requirement's own activity feed (requirements.service.ts's
+      // computeChangedFieldGroups) — invalidate its detail query too so the
+      // Activity panel picks up "changed status to X" immediately instead of
+      // waiting out its 15s staleTime.
+      queryClient.invalidateQueries({ queryKey: queryKeys.requirements.detail(requirementId) });
     },
   });
 }

@@ -18,7 +18,7 @@ import {
   CoverageCell, OwnerAvatar, ScoreRing, softTint,
 } from './RequirementsShared';
 import {
-  useCreateRequirementLink, useDeleteRequirementLink,
+  useCreateRequirementLink, useDeleteRequirementLink, useUpdateRequirement,
   useRequirementDetail, useAddRequirementComment,
   type RequirementLinkType, type ApiRequirementActivity,
 } from '@/hooks/useRequirements';
@@ -143,7 +143,7 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
           <div style={{ flex:1, minWidth:8 }}/>
 
           {/* Lifecycle stepper */}
-          <LifecycleStepper status={r.status}/>
+          <LifecycleStepper status={r.status} projectId={projectId} requirementId={r._id} onGoToVerify={() => setTab('verify')}/>
 
           {/* Activity toggle */}
           <button onClick={() => setActivityOpen(p=>!p)}
@@ -175,8 +175,29 @@ function TopBtn({ icon:Ic, label, tint, onClick, primary }: { icon:React.Element
 }
 
 // ── Lifecycle stepper ──────────────────────────────────────────────────────────
-function LifecycleStepper({ status }: { status: ReqStatus }) {
+// Draft → Reviewed → Approved is a plain manual review workflow with no
+// backend gate — clicking the immediate next step advances it directly via a
+// real PATCH. Verified is different: it's only ever supposed to be set by the
+// Test & Verification sign-off (single-owner confirm / pipeline — see
+// test-verification.service.ts's assertReadyForSignoff, which requires every
+// test case to have a passing result). Wiring this step to a raw status PATCH
+// would let a requirement claim "verified" with zero tests run, undermining
+// the whole gate that feature was built for — so clicking it just opens the
+// Verification tab instead. Validated has no computed gate of its own; it
+// only becomes clickable once the requirement is actually verified.
+function LifecycleStepper({ status, projectId, requirementId, onGoToVerify }:
+  { status: ReqStatus; projectId: string; requirementId?: string; onGoToVerify: () => void }) {
   const cur = REQ_STATUS[status].step;
+  const updateRequirement = useUpdateRequirement(projectId);
+
+  const advanceTo = (target: ReqStatus) => {
+    if (!requirementId || updateRequirement.isPending) return;
+    updateRequirement.mutate(
+      { requirementId, payload: { status: target } },
+      { onError: () => toast.error('Failed to update status') },
+    );
+  };
+
   return (
     <div style={{ display:'flex', alignItems:'center', gap:0, padding:'0 4px', flexShrink:1, minWidth:0, overflowX:'auto' }}>
       {REQ_STATUS_FLOW.map((s, i) => {
@@ -187,12 +208,26 @@ function LifecycleStepper({ status }: { status: ReqStatus }) {
         const col = future ? 'hsl(var(--border))' : m.tint;
         const labelCol = future ? 'hsl(var(--muted-foreground))' : m.tint;
         const lineCol = done ? m.tint : 'hsl(var(--border))';
+
+        const isImmediateNext = i === cur + 1;
+        const clickable =
+          (isImmediateNext && (s === 'reviewed' || s === 'approved' || s === 'validated')) || s === 'verified';
+        const handleClick = !clickable ? undefined : () => (s === 'verified' ? onGoToVerify() : advanceTo(s));
+
         return (
           <React.Fragment key={s}>
             {i > 0 && (
               <div style={{ width:16, height:1.5, background:lineCol, flexShrink:0 }}/>
             )}
-            <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+            <div
+              onClick={handleClick}
+              title={s === 'verified' ? 'Go to Verification tab' : clickable ? `Mark as ${m.label}` : undefined}
+              style={{
+                display:'flex', alignItems:'center', gap:4, flexShrink:0,
+                cursor: handleClick ? 'pointer' : 'default',
+                opacity: updateRequirement.isPending ? 0.6 : 1,
+              }}
+            >
               {/* Circle */}
               <div style={{
                 width:18, height:18, borderRadius:9999, flexShrink:0,
@@ -1050,12 +1085,19 @@ function ActivityPanel({ requirementId }: { requirementId?: string }) {
         })}
       </div>
       <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))', flexShrink:0, background:'hsl(var(--card))' }}>
-        <div style={{ display:'flex', gap:7 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, background:'hsl(var(--background))', border:'1px solid hsl(var(--border))', borderRadius:8, padding:'4px 6px 4px 10px' }}>
           <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Leave a comment…" rows={2}
             disabled={addComment.isPending || !requirementId}
-            style={{ flex:1, resize:'none', borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--background))', color:'hsl(var(--foreground))', padding:'7px 9px', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.45 }}/>
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            style={{ flex:1, resize:'none', border:'none', background:'transparent', color:'hsl(var(--foreground))', padding:'4px 0', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.4 }}/>
           <button onClick={handleSend} disabled={!comment.trim() || addComment.isPending || !requirementId}
-            style={{ alignSelf:'flex-end', width:30, height:30, borderRadius:7, border:'none', background:'hsl(var(--foreground))', color:'hsl(var(--background))', cursor: !comment.trim() || addComment.isPending ? 'default' : 'pointer', opacity: !comment.trim() || addComment.isPending ? 0.5 : 1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            title="Send comment"
+            style={{ alignSelf:'flex-end', marginBottom:2, width:28, height:28, borderRadius:6, border:'none', background: comment.trim() && !addComment.isPending ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.2)', color: comment.trim() && !addComment.isPending ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))', cursor: !comment.trim() || addComment.isPending ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s ease' }}>
             <Send size={13}/>
           </button>
         </div>
