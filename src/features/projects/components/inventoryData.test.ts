@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFromDef, type BuildDef, type BuildBomLine } from './inventoryData';
+import { buildFromDef, formatShortDate, type BuildDef, type BuildBomLine } from './inventoryData';
 
 const shortLine: BuildBomLine = {
   partId: 'p1',
@@ -52,6 +52,12 @@ describe('buildFromDef', () => {
     const build = buildFromDef({ ...baseDef, targetDate: target.toISOString() }, [shortLine]);
     expect(build.targetDate).toBe(target.toISOString());
     expect(build.daysLate).toBe(16);
+  });
+
+  it('formats projected ready with a year only when it is not the current year', () => {
+    const thisYear = new Date().getFullYear();
+    expect(formatShortDate(`${thisYear}-03-08T00:00:00.000Z`)).not.toMatch(/\d{4}/);
+    expect(formatShortDate(`${thisYear + 2}-03-08T00:00:00.000Z`)).toMatch(new RegExp(String(thisYear + 2)));
   });
 
   it('keeps daysLate at 0 when a target is set but nothing is short', () => {

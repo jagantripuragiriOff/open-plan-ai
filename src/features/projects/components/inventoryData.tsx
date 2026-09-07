@@ -697,7 +697,15 @@ function diffDays(laterIso: string, earlierIso: string): number {
 }
 
 export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+  const d = new Date(iso);
+  // Include the year only when it isn't the current one — a projected-ready date can land
+  // a year or more out (long-lead parts), and "Mar 08" with no year reads as next March.
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
 }
 
 /**

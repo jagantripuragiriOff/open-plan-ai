@@ -58,6 +58,9 @@ function BuildShortageBanner({ build }: { build: Build }) {
           {build.linkedMilestone
             ? <> — milestone <span className="font-semibold">{build.linkedMilestone}</span> is flagged at-risk on the schedule.</>
             : ' on the schedule.'}
+          {build.longestLead && (
+            <> Gated by <span className="font-medium text-foreground">{build.longestLead.name}</span> ({build.longestLead.pn}) — {build.longestLead.leadTimeDays}-day lead time.</>
+          )}
         </p>
       </div>
     );
@@ -70,7 +73,7 @@ function BuildShortageBanner({ build }: { build: Build }) {
         {shortCount} line{shortCount === 1 ? '' : 's'} short. Projected ready{' '}
         <span className="font-semibold text-foreground">{formatShortDate(build.projectedDate)}</span>
         {build.longestLead
-          ? <>, gated by {build.longestLead.name}&rsquo;s {build.longestLead.leadTimeDays}-day lead time.</>
+          ? <>, gated by <span className="font-medium text-foreground">{build.longestLead.name}</span> ({build.longestLead.pn}) — {build.longestLead.leadTimeDays}-day lead time.</>
           : '.'}
         {!build.targetDate && ' Set a target build date to track it against a deadline.'}
       </p>
