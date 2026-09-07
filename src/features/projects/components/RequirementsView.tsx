@@ -311,7 +311,7 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
   }
 
   return (
-    <div className="flex flex-col px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
+    <div className="flex flex-col px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
 
       {/* ── Fixed header zone (no scroll) ─────────────────────────── */}
       <div className="shrink-0 py-4">
