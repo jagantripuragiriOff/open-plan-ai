@@ -66,23 +66,45 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'hsl(var(--background))' }}>
       {/* Top bar */}
       <div style={{ borderBottom:'1px solid hsl(var(--border))', background:'hsl(var(--card))', padding:'10px 16px 0', display:'flex', flexDirection:'column', gap:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-          <button onClick={onClose} style={{ width:30, height:30, borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--card))', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background .1s' }}
-            onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')} onMouseLeave={e=>(e.currentTarget.style.background='hsl(var(--card))')}>
-            <ArrowLeft size={16} color="hsl(var(--muted-foreground))"/>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          <button
+            onClick={onClose}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--card))',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'background .1s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--muted))')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'hsl(var(--card))')}
+            title="Back"
+          >
+            <ArrowLeft size={16} color="hsl(var(--muted-foreground))" />
           </button>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-              <ReqKeyTag reqKey={r.key}/>
-              <TypePill type={r.type}/>
-              <PriorityPill priority={r.priority}/>
-              {r.hasGap && <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 8px', borderRadius:9999, fontSize:10.5, fontWeight:600, background:softTint('#D97706',0.12), color:'#D97706', border:`1px solid ${softTint('#D97706',0.28)}` }}><AlertTriangle size={11} color="#D97706"/>Has gaps</span>}
-            </div>
-            <div style={{ fontSize:15, fontWeight:700, color:'hsl(var(--foreground))', marginTop:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.title}
+            </h1>
+            <ReqKeyTag reqKey={r.key} />
+            <TypePill type={r.type} />
+            <PriorityPill priority={r.priority} />
+            {r.hasGap && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, fontSize: 10.5, fontWeight: 600, background: softTint('#D97706', 0.12), color: '#D97706', border: `1px solid ${softTint('#D97706', 0.28)}` }}>
+                <AlertTriangle size={11} color="#D97706" />
+                Has gaps
+              </span>
+            )}
           </div>
-          <div style={{ display:'flex', gap:6 }}>
-            <TopBtn icon={GitPullRequest} label="Impact" tint="#D97706" onClick={() => onImpact(r.key)}/>
-            <TopBtn icon={PenLine} label="Edit" tint="hsl(var(--foreground))" onClick={() => onEdit(r.key)} primary/>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <TopBtn icon={GitPullRequest} label="Impact" tint="#D97706" onClick={() => onImpact(r.key)} />
+            <TopBtn icon={PenLine} label="Edit" tint="hsl(var(--foreground))" onClick={() => onEdit(r.key)} primary />
           </div>
         </div>
 

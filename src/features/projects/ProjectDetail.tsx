@@ -1510,7 +1510,7 @@ export default function ProjectDetail() {
               underneath it (e.g. BOMDetailScreen's own header, which scrolls in
               its own inner container). */}
           {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
-          <div ref={setStickyHeaderEl} className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2.5 pb-2.5 border-b md:pt-0 md:mx-0 md:px-0 md:pb-2.5 will-change-transform">
+          <div ref={setStickyHeaderEl} className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2.5 pb-2.5 border-b border-border md:pt-0 md:mx-0 md:px-0 md:pb-2.5 will-change-transform">
             {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
               <div className="flex flex-row md:items-center justify-between gap-2 w-full pb-1">
                 {/* Left Side: Tabs */}
