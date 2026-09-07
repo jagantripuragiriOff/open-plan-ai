@@ -31,14 +31,18 @@ function buildAlerts(builds: Build[]): Alert[] {
         : `Projected ready ${formatShortDate(b.projectedDate)}.`,
       buildId: b.id,
     });
-    alerts.push({
-      id: `milestone-${b.id}`,
-      icon: 'milestone',
-      title: `Milestone at risk — ${b.linkedMilestone}`,
-      severity: 'HIGH',
-      description: `${b.name} projected ready ${formatShortDate(b.projectedDate)}, ${b.daysLate} days past target ${formatShortDate(b.targetDate)}.`,
-      buildId: b.id,
-    });
+    // Only a real, user-set target date makes "past target" meaningful — skip this
+    // alert entirely for builds with no target or no linked milestone.
+    if (b.linkedMilestone && b.targetDate && b.daysLate > 0) {
+      alerts.push({
+        id: `milestone-${b.id}`,
+        icon: 'milestone',
+        title: `Milestone at risk — ${b.linkedMilestone}`,
+        severity: 'HIGH',
+        description: `${b.name} projected ready ${formatShortDate(b.projectedDate)}, ${b.daysLate} days past target ${formatShortDate(b.targetDate)}.`,
+        buildId: b.id,
+      });
+    }
   }
   return alerts;
 }
@@ -164,9 +168,11 @@ export function AlertsPanel({ builds, stock, coverageOf, onSelectPart, onSelectB
                       <div className="flex items-center gap-1.5 shrink-0">
                         {isShort ? (
                           <>
-                            <Badge variant="outline" className="text-[10px] font-normal gap-1">
-                              <Flag className="h-2.5 w-2.5" />{b.daysLate}d
-                            </Badge>
+                            {b.daysLate > 0 && (
+                              <Badge variant="outline" className="text-[10px] font-normal gap-1">
+                                <Flag className="h-2.5 w-2.5" />{b.daysLate}d
+                              </Badge>
+                            )}
                             <Badge variant="destructive" className="text-[10px]">Short</Badge>
                           </>
                         ) : (
@@ -239,9 +245,11 @@ export function AlertsPanel({ builds, stock, coverageOf, onSelectPart, onSelectB
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant="outline" className="text-[10px] font-normal gap-1">
-                        <Flag className="h-2.5 w-2.5" />{b.daysLate}d
-                      </Badge>
+                      {b.daysLate > 0 && (
+                        <Badge variant="outline" className="text-[10px] font-normal gap-1">
+                          <Flag className="h-2.5 w-2.5" />{b.daysLate}d
+                        </Badge>
+                      )}
                       <Badge variant="destructive" className="text-[10px]">Short</Badge>
                     </div>
                   </div>

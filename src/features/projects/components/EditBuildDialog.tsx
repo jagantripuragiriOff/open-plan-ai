@@ -44,13 +44,14 @@ import {
 } from '@/components/ui/form';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { cn } from '@/lib/utils';
-import { Layers, Lock, User, X } from 'lucide-react';
+import { Layers, User, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useProjectMembers } from '@/hooks/useProjectTeam';
 import { useProjectMilestones } from '@/hooks/useMilestones';
 import { resolveFileUrl } from '@/utils/fileUrl';
 import type { TeamMember } from '@/types';
-import type { BuildDef } from './inventoryData';
+import type { Build } from './inventoryData';
+import type { UpdateBuildDto } from '@/services/inventory.service';
 
 const BUILD_TYPES = ['EVT', 'DVT', 'PVT', 'Custom'] as const;
 
@@ -65,103 +66,102 @@ const buildSchema = z.object({
   scrapPct: z.coerce.number().min(0).max(100),
   milestone: z.string().max(60, 'Milestone must be less than 60 characters').optional(),
   targetDate: z.string().optional(),
-  projectId: z.string().min(1, 'Select a project'),
   assigneeId: z.string().min(1, 'Select an assignee'),
 });
 
 type BuildFormData = z.infer<typeof buildSchema>;
 
-export type NewBuildInput = Omit<BuildDef, 'id' | 'assignee' | 'milestone'> & { projectId: string; assigneeId: string; milestone?: string };
-
-interface NewBuildDialogProps {
+interface EditBuildDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddBuild: (input: NewBuildInput) => void;
-  projects: { id: string; name: string }[];
-  /** When set, the project field is locked to this id instead of being selectable — used when the dialog is opened from within a single project's context (e.g. its BOM page). */
-  lockedProjectId?: string;
+  build: Build;
+  onSave: (dto: UpdateBuildDto) => void;
+  isSaving?: boolean;
 }
 
-export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedProjectId }: NewBuildDialogProps) {
+/** `2026-09-07T…Z` → `2026-09-07` for a native <input type="date">. */
+function toDateInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+export function EditBuildDialog({ isOpen, onClose, build, onSave, isSaving }: EditBuildDialogProps) {
   const isMobile = useIsMobile();
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [assignee, setAssignee] = useState<TeamMember | null>(null);
   const [isAssigneePopoverOpen, setIsAssigneePopoverOpen] = useState(false);
-  const lockedProjectName = projects.find(p => p.id === lockedProjectId)?.name ?? lockedProjectId ?? '';
+
+  const { data: projectMembers = [] } = useProjectMembers(build.projectId);
+  const { data: milestones = [] } = useProjectMilestones(build.projectId);
+
+  const defaults: BuildFormData = {
+    name: build.name,
+    type: build.type,
+    units: build.units,
+    bomRev: build.bomRev,
+    scrapPct: build.scrapPct,
+    milestone: build.linkedMilestone ?? '',
+    targetDate: toDateInput(build.targetDate),
+    assigneeId: build.assignee?.id ?? '',
+  };
 
   const form = useForm<BuildFormData>({
     resolver: zodResolver(buildSchema),
-    defaultValues: {
-      name: '',
-      type: '',
-      units: 1,
-      bomRev: '',
-      scrapPct: 0,
-      milestone: '',
-      targetDate: '',
-      projectId: lockedProjectId ?? projects[0]?.id ?? '',
-      assigneeId: '',
-    },
+    defaultValues: defaults,
   });
 
-  // Assignee choices are scoped to whichever project is currently selected in the form —
-  // a build's assignee must be a member of that build's own project.
-  const selectedProjectId = form.watch('projectId') || lockedProjectId;
-  const { data: projectMembers = [] } = useProjectMembers(selectedProjectId);
-  const { data: milestones = [] } = useProjectMilestones(selectedProjectId ?? '');
+  // Re-seed the form whenever a different build is opened, or the dialog is reopened.
+  useEffect(() => {
+    if (isOpen) {
+      form.reset(defaults);
+      setAssignee(build.assignee ? (projectMembers.find(m => m.id === build.assignee!.id) ?? null) : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, build.id, projectMembers.length]);
 
   const pickAssignee = (member: TeamMember | null) => {
     setAssignee(member);
-    form.setValue('assigneeId', member?.id ?? '', { shouldValidate: form.formState.isSubmitted });
+    form.setValue('assigneeId', member?.id ?? '', { shouldValidate: form.formState.isSubmitted, shouldDirty: true });
   };
 
-  // Clear a previously picked assignee if the project changes and they're no longer a
-  // member of the newly selected project.
-  useEffect(() => {
-    if (assignee && !projectMembers.some(m => m.id === assignee.id)) {
-      pickAssignee(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProjectId, projectMembers]);
-
-  // Same for a picked milestone — it belongs to a single project.
-  useEffect(() => {
-    const current = form.getValues('milestone');
-    if (current && !milestones.some(m => m.name === current)) {
-      form.setValue('milestone', '', { shouldValidate: form.formState.isSubmitted });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProjectId, milestones]);
-
-  const isFormDirty = form.formState.isDirty || assignee !== null;
+  const isFormDirty = form.formState.isDirty;
 
   const resetAndClose = () => {
-    form.reset();
-    setAssignee(null);
+    form.reset(defaults);
     onClose();
   };
 
   const attemptClose = () => {
-    if (isFormDirty) {
-      setShowDiscardConfirm(true);
-    } else {
-      resetAndClose();
-    }
+    if (isFormDirty && !isSaving) setShowDiscardConfirm(true);
+    else resetAndClose();
   };
 
   const handleSubmit = (data: BuildFormData) => {
-    onAddBuild({
-      name: data.name.trim(),
-      type: data.type,
-      units: data.units,
-      bomRev: data.bomRev.trim(),
-      scrapPct: data.scrapPct,
-      milestone: data.milestone?.trim() || undefined,
-      targetDate: data.targetDate ? new Date(data.targetDate).toISOString() : undefined,
-      projectId: data.projectId,
-      assigneeId: data.assigneeId,
-    });
-    resetAndClose();
+    // Send only what actually changed — and use `null` (not undefined) to clear
+    // milestone / target date so the backend distinguishes "clear" from "unchanged".
+    const dto: UpdateBuildDto = {};
+    if (data.name.trim() !== build.name) dto.name = data.name.trim();
+    if (data.type !== build.type) dto.type = data.type;
+    if (data.units !== build.units) dto.units = data.units;
+    if (data.bomRev.trim() !== build.bomRev) dto.bomRev = data.bomRev.trim();
+    if (data.scrapPct !== build.scrapPct) dto.scrapPct = data.scrapPct;
+
+    const nextMilestone = data.milestone?.trim() || '';
+    if (nextMilestone !== (build.linkedMilestone ?? '')) dto.milestone = nextMilestone || null;
+
+    const nextTarget = data.targetDate || '';
+    if (nextTarget !== toDateInput(build.targetDate)) {
+      dto.targetDate = nextTarget ? new Date(nextTarget).toISOString() : null;
+    }
+
+    if (data.assigneeId !== (build.assignee?.id ?? '')) dto.assigneeId = data.assigneeId;
+
+    if (Object.keys(dto).length === 0) {
+      resetAndClose();
+      return;
+    }
+    onSave(dto);
   };
 
   return (
@@ -180,10 +180,10 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
             <Layers className="h-4 w-4" />
           </div>
           <div className="text-left flex-1 min-w-0">
-            <DialogTitle>New build</DialogTitle>
-            <DialogDescription>Nets this phase's demand against current stock and orders</DialogDescription>
+            <DialogTitle>Edit build</DialogTitle>
+            <DialogDescription>Target date drives the projected-ready vs. target comparison</DialogDescription>
           </div>
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none">
+          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogClose>
@@ -193,39 +193,6 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5 items-start">
-                {lockedProjectId ? (
-                  <FormItem className="sm:col-span-2">
-                    <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Project</FormLabel>
-                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted text-sm text-foreground">
-                      <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="truncate">{lockedProjectName}</span>
-                    </div>
-                  </FormItem>
-                ) : (
-                  <FormField
-                    control={form.control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-2">
-                        <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Project <span className="text-destructive" aria-hidden="true">*</span></FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select project..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {projects.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
                 <FormField
                   control={form.control}
                   name="name"
@@ -326,29 +293,36 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
                 <FormField
                   control={form.control}
                   name="milestone"
-                  render={({ field }) => (
+                  render={({ field }) => {
+                    // A legacy free-text milestone may not match any current project milestone —
+                    // keep it selectable so editing another field doesn't silently drop it.
+                    const options = milestones.some(m => m.name === field.value) || !field.value
+                      ? milestones.map(m => m.name)
+                      : [field.value, ...milestones.map(m => m.name)];
+                    return (
                     <FormItem>
                       <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked milestone <span className="normal-case font-normal">optional</span></FormLabel>
                       <Select
                         value={field.value || NO_MILESTONE}
                         onValueChange={(v) => field.onChange(v === NO_MILESTONE ? '' : v)}
-                        disabled={milestones.length === 0}
+                        disabled={options.length === 0}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={milestones.length === 0 ? 'No milestones' : 'Select milestone...'} />
+                            <SelectValue placeholder={options.length === 0 ? 'No milestones' : 'Select milestone...'} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value={NO_MILESTONE}>None</SelectItem>
-                          {milestones.map((m) => (
-                            <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                          {options.map((name) => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
+                    );
+                  }}
                 />
 
                 <FormField
@@ -423,8 +397,8 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
             </div>
 
             <DialogFooter className="flex-row justify-end gap-2 space-x-0 sm:space-x-0 px-4 sm:px-6 py-4 border-t shrink-0">
-              <Button type="button" variant="outline" className="flex-1" onClick={attemptClose}>Cancel</Button>
-              <Button type="submit" className="flex-1">Create build</Button>
+              <Button type="button" variant="outline" className="flex-1" onClick={attemptClose} disabled={isSaving}>Cancel</Button>
+              <Button type="submit" className="flex-1" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save changes'}</Button>
             </DialogFooter>
           </form>
         </Form>

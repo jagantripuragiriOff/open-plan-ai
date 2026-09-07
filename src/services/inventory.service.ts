@@ -96,6 +96,7 @@ export interface ApiBuildBomLine {
   onHand: number;
   allocated: number;
   onOrder: number;
+  quarantineQty: number;
   leadTimeDays: number;
   required: number;
   shortage: number;
@@ -241,6 +242,7 @@ export function fromApiBuildBomLine(r: ApiBuildBomLine): BuildBomLine {
     onHand: r.onHand,
     allocated: r.allocated,
     onOrder: r.onOrder,
+    quarantineQty: r.quarantineQty ?? 0,
     leadTimeDays: r.leadTimeDays,
     required: r.required,
     shortage: r.shortage,
@@ -331,6 +333,19 @@ export interface CreateBuildDto {
   assigneeId: string;
 }
 
+// Partial patch — only the changed fields are sent. `milestone`/`targetDate` accept
+// `null` to explicitly clear the stored value (vs. omitting the key to leave it).
+export interface UpdateBuildDto {
+  name?: string;
+  type?: string;
+  units?: number;
+  bomRev?: string;
+  scrapPct?: number;
+  milestone?: string | null;
+  targetDate?: string | null;
+  assigneeId?: string;
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────────
 
 export const inventoryService = {
@@ -356,6 +371,10 @@ export const inventoryService = {
 
   async createBuild(projectId: string, dto: CreateBuildDto): Promise<ApiBuildDef> {
     return apiClient.post<ApiBuildDef>(ENDPOINTS.INVENTORY.BUILDS_CREATE(projectId), dto);
+  },
+
+  async updateBuild(projectId: string, buildId: string, dto: UpdateBuildDto): Promise<ApiBuildDef> {
+    return apiClient.patch<ApiBuildDef>(ENDPOINTS.INVENTORY.BUILDS_UPDATE(projectId, buildId), dto);
   },
 
   async receiveStock(orgId: string, dto: ReceiveStockDto): Promise<ApiStockRecord> {

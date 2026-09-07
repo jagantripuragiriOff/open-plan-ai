@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
-import { BOMNode, BOMRevision, BOM_CAT_META, bomPath, bomTypeOf, bomCountAll, describeDeleteImpact, fromApiRevision, formatLeadTime, formatRevisionDate, resolveRevisionAuthor, getCategoryMeta, type BOMApprovalRequestScope } from './bomData';
+import { BOMNode, BOMRevision, BOM_CAT_META, bomPath, bomTypeOf, bomCountAll, describeDeleteImpact, fromApiRevision, formatLeadTime, formatRevisionDate, resolveRevisionAuthor, getCategoryMeta, type BOMApprovalRequestScope, type ApiPartResponse } from './bomData';
+import { BOMCatalogPartPicker } from './BOMCatalogPartPicker';
 import { BOMStatusPill, ReqTag, PartThumb, PartImageThumb, ImageViewerModal } from './BOMShared';
 import { BOMPartSheet, BOMPartPayload, DocValue } from './BOMPartSheet';
 import { BOMECOSheet } from './BOMECOSheet';
@@ -80,12 +81,13 @@ async function saveBomDocs(nodeId: string, payload: BOMPartPayload): Promise<{ p
 // ── Add Sub-component Dialog ───────────────────────────────────────
 export function AddSubcomponentDialog({
   open, onClose, parentNode,
-  onCreateNew, onImportExcel,
+  onAddManually, onImportExcel,
 }: {
   open: boolean;
   onClose: () => void;
   parentNode: BOMNode;
-  onCreateNew: () => void;
+  /** Opens the catalog picker (pick an existing part, or fall through to the new-part wizard). */
+  onAddManually: () => void;
   onImportExcel: () => void;
 }) {
   return (
@@ -103,7 +105,7 @@ export function AddSubcomponentDialog({
 
         <div className="px-5 py-5 flex flex-col gap-3">
           <button
-            onClick={() => { onClose(); onCreateNew(); }}
+            onClick={() => { onClose(); onAddManually(); }}
             className="flex items-center gap-3 p-4 rounded-lg border border-border text-left hover:border-primary/40 hover:bg-primary/5 transition-colors"
           >
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -111,7 +113,7 @@ export function AddSubcomponentDialog({
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-foreground">Add Manually</div>
-              <div className="text-xs text-muted-foreground">Create one new part using the part details form.</div>
+              <div className="text-xs text-muted-foreground">Pick an existing part, or create a new one with the part details form.</div>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </button>
@@ -499,6 +501,7 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
   const [showEdit, setShowEdit] = useState(false);
   const [ecoOpen, setEcoOpen] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
+  const [showSubPicker, setShowSubPicker] = useState(false);
   const [showCreateNewSub, setShowCreateNewSub] = useState(false);
   const [showImportExcel, setShowImportExcel] = useState(false);
   const [showSendForReview, setShowSendForReview] = useState(false);
@@ -616,6 +619,35 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
     const { photoUrl } = await saveBomDocs(node.id, payload);
     if (photoUrl) await updatePart.mutateAsync({ partId: part.id, dto: { imageUrl: photoUrl } });
     setShowCreateNewSub(false);
+  };
+
+  // A part can't sit twice directly under the same parent — the picker disables these.
+  const childPartIds = useMemo(
+    () => new Set((originalNode.children ?? []).map(c => c._partId).filter((id): id is string => !!id)),
+    [originalNode.children],
+  );
+
+  // ── Quick-add an existing catalog part as a Draft sub-component of this node ─
+  const handleAddExistingSub = async (part: ApiPartResponse) => {
+    if (childPartIds.has(part.id)) {
+      toast.error(`${part.partNumber} is already a sub-component of ${node.pn}`);
+      return;
+    }
+    try {
+      await createNode.mutateAsync({
+        partId: part.id,
+        quantity: 1,
+        unit: part.unit,
+        status: 'draft',
+        parentId: originalNode.id,
+      });
+      toast.success(`${part.partNumber} added under ${node.pn}`);
+      setShowSubPicker(false);
+    } catch (err) {
+      toast.error('Failed to add sub-component', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
   };
 
   // ── Save handler ──
@@ -1461,9 +1493,22 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
         open={showAddSub}
         onClose={() => setShowAddSub(false)}
         parentNode={node}
-        onCreateNew={() => { setShowAddSub(false); setShowCreateNewSub(true); }}
+        onAddManually={() => { setShowAddSub(false); setShowSubPicker(true); }}
         onImportExcel={() => { setShowAddSub(false); setShowImportExcel(true); }}
       />
+
+      {/* Sub-component catalog picker (quick-add an existing part, or create new) */}
+      {showSubPicker && (
+        <BOMCatalogPartPicker
+          open={showSubPicker}
+          onClose={() => setShowSubPicker(false)}
+          orgId={orgId}
+          disabledPartIds={childPartIds}
+          disabledReason="Already a sub-component"
+          onSelect={handleAddExistingSub}
+          onCreateNew={() => { setShowSubPicker(false); setShowCreateNewSub(true); }}
+        />
+      )}
 
       {/* Create New Sub-component sheet */}
       <BOMPartSheet

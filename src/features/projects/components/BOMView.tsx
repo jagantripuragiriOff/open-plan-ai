@@ -110,6 +110,8 @@ import {
   fromApiNode, applyPriceRollup, assignLevelLabels, formatLeadTime,
   describeDeleteImpact,
 } from './bomData';
+import type { ApiPartResponse } from './bomData';
+import { BOMCatalogPartPicker } from './BOMCatalogPartPicker';
 import { BOMStatusPill, ReqTag, PartImageThumb } from './BOMShared';
 import { BOMDetailScreen, AddSubcomponentDialog } from './BOMDetailScreen';
 import { BOMMapView } from './BOMMapView';
@@ -1376,6 +1378,9 @@ export function BOMView({
   const fallbackPartId = searchParams.get('partId');
   const fallbackPn = searchParams.get('pn');
   const [addChoiceOpen, setAddChoiceOpen] = useState(false);
+  // "Add Manually" opens the catalog picker first — pick an existing org part
+  // (quick add), or fall through to the new-part wizard (addManualOpen).
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [addManualOpen, setAddManualOpen] = useState(false);
   const [addImportOpen, setAddImportOpen] = useState(false);
   const [addAiImportOpen, setAddAiImportOpen] = useState(false);
@@ -1387,6 +1392,8 @@ export function BOMView({
   const [sheetsPullOpen, setSheetsPullOpen] = useState(false);
   const [sheetsPushOpen, setSheetsPushOpen] = useState(false);
   const [addSubNode, setAddSubNode] = useState<BOMNode | null>(null);
+  // "Add Manually" on a sub-component opens the catalog picker against this parent first.
+  const [subPickerNode, setSubPickerNode] = useState<BOMNode | null>(null);
   const [createSubNode, setCreateSubNode] = useState<BOMNode | null>(null);
   const [importSubNode, setImportSubNode] = useState<BOMNode | null>(null);
 
@@ -1408,14 +1415,19 @@ export function BOMView({
   const [filterOpen, setFilterOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [filters, setFilters] = useState<BOMFilters>({ ...EMPTY_FILTERS });
-  // The toolbar's All/Approved/Pending/Rejected quick-tab is a multi-select shortcut
-  // over the same status filter the drawer's Status chips edit — both read/write
-  // filters.statuses directly (toggling membership, same as the drawer chips) so the
-  // two controls always reflect the exact same selection and can never disagree.
+  // The drawer's Status chips are multi-select; the toolbar's All/Approved/Pending/
+  // Rejected/Draft segmented control is single-select — clicking a segment narrows
+  // the filter to just that status (clicking the active one again falls back to All).
+  // Both read/write filters.statuses directly so the two controls stay consistent.
   const toggleFilterStatus = (id: BOMStatus) =>
     setFilters(f => ({
       ...f,
       statuses: f.statuses.includes(id) ? f.statuses.filter(s => s !== id) : [...f.statuses, id],
+    }));
+  const selectFilterStatus = (id: BOMStatus) =>
+    setFilters(f => ({
+      ...f,
+      statuses: f.statuses.length === 1 && f.statuses[0] === id ? [] : [id],
     }));
   const clearFilterStatus = () => setFilters(f => ({ ...f, statuses: [] }));
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
@@ -1537,6 +1549,63 @@ export function BOMView({
     part: Awaited<ReturnType<typeof createPart.mutateAsync>>;
     node: Awaited<ReturnType<typeof createNode.mutateAsync>>;
   } | null>(null);
+
+  // A part can sit in many projects and at several places in one BOM, but not
+  // twice as a top-level line — the picker disables parts already at root level.
+  const topLevelPartIds = useMemo(
+    () => new Set(rootNodes.map(n => n._partId).filter((id): id is string => !!id)),
+    [rootNodes],
+  );
+
+  // ── Quick-add an existing catalog part as a Draft top-level BOM line (editable in the row) ─
+  const handleAddExistingPart = async (part: ApiPartResponse) => {
+    if (topLevelPartIds.has(part.id)) {
+      toast.error(`${part.partNumber} is already a top-level part in this BOM`);
+      return;
+    }
+    try {
+      await createNode.mutateAsync({
+        partId: part.id,
+        quantity: 1,
+        unit: part.unit,
+        status: 'draft',
+      });
+      toast.success(`${part.partNumber} added to BOM`);
+      setAddPickerOpen(false);
+      onAddClose?.();
+    } catch (err) {
+      toast.error('Failed to add part', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  // ── Quick-add an existing catalog part as a Draft sub-component of `parent` ─
+  const handleAddExistingSub = async (part: ApiPartResponse, parent: BOMNode) => {
+    const childIds = new Set(
+      (parent.children ?? []).map(c => c._partId).filter((id): id is string => !!id),
+    );
+    if (childIds.has(part.id)) {
+      toast.error(`${part.partNumber} is already a sub-component of ${parent.pn}`);
+      return;
+    }
+    try {
+      await createNode.mutateAsync({
+        partId: part.id,
+        quantity: 1,
+        unit: part.unit,
+        status: 'draft',
+        parentId: parent.id,
+      });
+      toast.success(`${part.partNumber} added under ${parent.pn}`);
+      setSubPickerNode(null);
+      expandNodes([parent.id]);
+    } catch (err) {
+      toast.error('Failed to add sub-component', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
 
   // ── Add Part handler (two-step: create part in catalog, then node) ─
   const handleAddPart = async (payload: BOMPartPayload) => {
@@ -1819,15 +1888,17 @@ export function BOMView({
   }
 
   const Tab = ({ id, label }: { id: 'all' | BOMStatus; label: string }) => {
-    const active = id === 'all' ? filters.statuses.length === 0 : filters.statuses.includes(id);
+    const active = id === 'all'
+      ? filters.statuses.length === 0
+      : filters.statuses.length === 1 && filters.statuses[0] === id;
     return (
       <button
-        onClick={() => id === 'all' ? clearFilterStatus() : toggleFilterStatus(id)}
+        onClick={() => id === 'all' ? clearFilterStatus() : selectFilterStatus(id)}
         className={cn(
-          'px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border transition-colors',
+          'px-3 py-1 rounded-md text-xs font-medium cursor-pointer border-none transition-colors',
           active
-            ? 'bg-primary/10 text-primary border-primary/25'
-            : 'text-muted-foreground border-transparent hover:text-foreground'
+            ? 'bg-card text-foreground shadow-sm'
+            : 'bg-transparent text-muted-foreground hover:text-foreground'
         )}
       >
         {label}
@@ -1878,11 +1949,13 @@ export function BOMView({
             )}
           </div>
 
-          <Tab id="all" label="All" />
-          <Tab id="approved" label="Approved" />
-          <Tab id="pending" label="Pending" />
-          <Tab id="rejected" label="Rejected" />
-          <Tab id="draft" label="Draft" />
+          <div className="flex bg-muted border border-border rounded-lg p-0.5 gap-0.5">
+            <Tab id="all" label="All" />
+            <Tab id="approved" label="Approved" />
+            <Tab id="pending" label="Pending" />
+            <Tab id="rejected" label="Rejected" />
+            <Tab id="draft" label="Draft" />
+          </div>
 
           <div className="flex-1" />
 
@@ -2136,7 +2209,7 @@ export function BOMView({
           </DialogHeader>
           <div className="flex flex-col gap-2 px-4 py-4">
             <button
-              onClick={() => { setAddChoiceOpen(false); setAddManualOpen(true); }}
+              onClick={() => { setAddChoiceOpen(false); setAddPickerOpen(true); }}
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-border bg-card hover:bg-muted/60 hover:border-foreground/20 transition-colors text-left group"
             >
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
@@ -2144,7 +2217,7 @@ export function BOMView({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-foreground">Add Manually</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Create one new part using the part details form.</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Pick an existing part, or create a new one with the part details form.</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
             </button>
@@ -2201,6 +2274,19 @@ export function BOMView({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Part — catalog picker (shown after "Add Manually"; quick-add or create new) */}
+      {addPickerOpen && (
+        <BOMCatalogPartPicker
+          open={addPickerOpen}
+          onClose={() => { setAddPickerOpen(false); onAddClose?.(); }}
+          orgId={orgId}
+          disabledPartIds={topLevelPartIds}
+          disabledReason="Already a top-level part"
+          onSelect={handleAddExistingPart}
+          onCreateNew={() => { setAddPickerOpen(false); setAddManualOpen(true); }}
+        />
+      )}
 
       {/* Add Part sheet — manual */}
       <BOMPartSheet
@@ -2263,8 +2349,21 @@ export function BOMView({
           open={!!addSubNode}
           onClose={() => setAddSubNode(null)}
           parentNode={addSubNode}
-          onCreateNew={() => { setCreateSubNode(addSubNode); setAddSubNode(null); }}
+          onAddManually={() => { setSubPickerNode(addSubNode); setAddSubNode(null); }}
           onImportExcel={() => { setImportSubNode(addSubNode); setAddSubNode(null); }}
+        />
+      )}
+
+      {/* Sub-component catalog picker (quick-add an existing part, or create new) */}
+      {subPickerNode && (
+        <BOMCatalogPartPicker
+          open={!!subPickerNode}
+          onClose={() => setSubPickerNode(null)}
+          orgId={orgId}
+          disabledPartIds={new Set((subPickerNode.children ?? []).map(c => c._partId).filter((id): id is string => !!id))}
+          disabledReason="Already a sub-component"
+          onSelect={(part) => handleAddExistingSub(part, subPickerNode)}
+          onCreateNew={() => { setCreateSubNode(subPickerNode); setSubPickerNode(null); }}
         />
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  CheckCircle, Truck, Flag, ArrowRight, ClipboardCheck, Plus, Search, ChevronLeft,
+  CheckCircle, Truck, Flag, ArrowRight, ClipboardCheck, Plus, Search, ChevronLeft, Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,14 +11,75 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAllocateBuild, useKitBuild, useGenerateShortageOrders } from '@/hooks/useInventory';
+import { useAllocateBuild, useKitBuild, useGenerateShortageOrders, useUpdateInventoryBuild } from '@/hooks/useInventory';
 import { HoverZoomImage, PartThumb } from './BOMShared';
 import { CoveragePill, formatShortDate, type Build } from './inventoryData';
 import { NewBuildDialog, type NewBuildInput } from './NewBuildDialog';
+import { EditBuildDialog } from './EditBuildDialog';
 import { GenerateShortageOrdersDialog } from './GenerateShortageOrdersDialog';
+import type { UpdateBuildDto } from '@/services/inventory.service';
 
 // Fixed accent per build phase — purely visual grouping, matches the design system's build type chips.
 const BUILD_TYPE_TINT: Record<string, string> = { EVT: '#7C3AED', DVT: '#2563EB', PVT: '#16A34A' };
+
+// The build-list card's one-line status footer. "N days past target" only appears when
+// there's a real, user-set target date to be late against; otherwise a short build just
+// reads "Short" and a covered one "Clear to build".
+function BuildListStatusLine({ build }: { build: Build }) {
+  if (build.shortLines.length > 0) {
+    return (
+      <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+        <Flag className="h-3 w-3" />
+        {build.targetDate && build.daysLate > 0 ? `${build.daysLate}d past target` : `Short ${build.shortLines.length} line${build.shortLines.length === 1 ? '' : 's'}`}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 text-xs font-medium" style={{ color: '#16A34A' }}>
+      <CheckCircle className="h-3 w-3" /> Clear to build
+    </div>
+  );
+}
+
+// The shortage callout under the target/projected header. When a real target date is set
+// and the projected-ready runs past it, this is the "at-risk" banner; with no target it
+// degrades to a plain projected-ready note (no "past target", no milestone-at-risk claim).
+function BuildShortageBanner({ build }: { build: Build }) {
+  if (build.shortLines.length === 0) return null;
+  const shortCount = build.shortLines.length;
+
+  if (build.targetDate && build.daysLate > 0) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2 text-sm">
+        <Flag className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+        <p>
+          Shortage lead time pushes the projected ready date{' '}
+          <span className="font-semibold text-destructive">{build.daysLate} days</span> past target
+          {build.linkedMilestone
+            ? <> — milestone <span className="font-semibold">{build.linkedMilestone}</span> is flagged at-risk on the schedule.</>
+            : ' on the schedule.'}
+          {build.longestLead && (
+            <> Gated by <span className="font-medium text-foreground">{build.longestLead.name}</span> ({build.longestLead.pn}) — {build.longestLead.leadTimeDays}-day lead time.</>
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border p-3 flex items-start gap-2 text-sm text-muted-foreground">
+      <Flag className="h-4 w-4 shrink-0 mt-0.5" />
+      <p>
+        {shortCount} line{shortCount === 1 ? '' : 's'} short. Projected ready{' '}
+        <span className="font-semibold text-foreground">{formatShortDate(build.projectedDate)}</span>
+        {build.longestLead
+          ? <>, gated by <span className="font-medium text-foreground">{build.longestLead.name}</span> ({build.longestLead.pn}) — {build.longestLead.leadTimeDays}-day lead time.</>
+          : '.'}
+        {!build.targetDate && ' Set a target build date to track it against a deadline.'}
+      </p>
+    </div>
+  );
+}
 
 interface BuildsPanelProps {
   orgId: string;
@@ -36,12 +97,28 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
   const [mobileSearch, setMobileSearch] = useState('');
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [newBuildOpen, setNewBuildOpen] = useState(false);
+  const [editBuildOpen, setEditBuildOpen] = useState(false);
   const [shortageDialogOpen, setShortageDialogOpen] = useState(false);
   const selectedBuild = builds.find(b => b.id === selectedBuildId) ?? builds[0];
 
   const allocateMutation = useAllocateBuild(orgId);
   const kitMutation = useKitBuild(orgId);
   const shortageOrderMutation = useGenerateShortageOrders(orgId);
+  const updateMutation = useUpdateInventoryBuild(orgId);
+
+  const handleSaveBuild = (dto: UpdateBuildDto) => {
+    if (!selectedBuild) return;
+    updateMutation.mutate(
+      { projectId: selectedBuild.projectId, buildId: selectedBuild.id, ...dto },
+      {
+        onSuccess: () => {
+          setEditBuildOpen(false);
+          toast.success(`${selectedBuild.name} updated`);
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to update build'),
+      },
+    );
+  };
 
   const canKit = !!selectedBuild && selectedBuild.status === 'allocated';
   const isKitted = selectedBuild?.status === 'kitted';
@@ -145,17 +222,9 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mb-1.5">
-                    {b.units} units · {b.bomRev} · {formatShortDate(b.targetDate)}
+                    {b.units} units · {b.bomRev} · {b.targetDate ? formatShortDate(b.targetDate) : 'no target date'}
                   </div>
-                  {isShort ? (
-                    <div className="flex items-center gap-1 text-xs font-medium text-destructive">
-                      <Flag className="h-3 w-3" /> {b.daysLate}d past target
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-xs font-medium" style={{ color: '#16A34A' }}>
-                      <CheckCircle className="h-3 w-3" /> Complete
-                    </div>
-                  )}
+                  <BuildListStatusLine build={b} />
                 </button>
               );
             })}
@@ -186,8 +255,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}% · linked to{' '}
-                <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}%
+                {selectedBuild.linkedMilestone && (
+                  <>
+                    {' '}· linked to <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                  </>
+                )}
                 {selectedBuild.assignee && (
                   <>
                     {' '}· Assigned to <span className="font-medium text-foreground">{selectedBuild.assignee.name}</span>
@@ -198,27 +271,30 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
               <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
                 <div>
                   <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Target</div>
-                  <div className="text-base font-bold">{formatShortDate(selectedBuild.targetDate)}</div>
+                  <div className={cn('text-base font-bold', !selectedBuild.targetDate && 'text-muted-foreground font-medium')}>
+                    {selectedBuild.targetDate ? formatShortDate(selectedBuild.targetDate) : 'Not set'}
+                  </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 <div className="text-right">
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projected</div>
-                  <div className="text-base font-bold" style={{ color: selectedBuild.daysLate > 0 ? '#DC2626' : '#16A34A' }}>
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projected ready</div>
+                  <div
+                    className="text-base font-bold"
+                    style={{ color: selectedBuild.daysLate > 0 ? '#DC2626' : selectedBuild.targetDate ? '#16A34A' : undefined }}
+                  >
                     {formatShortDate(selectedBuild.projectedDate)}
                   </div>
+                  {selectedBuild.daysLate > 0 && (
+                    <div className="text-xs text-destructive">{selectedBuild.daysLate} days late</div>
+                  )}
                 </div>
               </div>
 
-              {selectedBuild.shortLines.length > 0 && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2 text-sm">
-                  <Flag className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                  <p>
-                    Shortage lead time pushes the projected ready date{' '}
-                    <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target — milestone{' '}
-                    <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
-                  </p>
-                </div>
-              )}
+              <Button variant="outline" className="w-full" onClick={() => setEditBuildOpen(true)}>
+                <Pencil className="h-4 w-4 mr-2" /> Edit build
+              </Button>
+
+              <BuildShortageBanner build={selectedBuild} />
 
               <div className="flex flex-col gap-2">
                 <Button
@@ -298,6 +374,7 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
           </DialogContent>
         </Dialog>
         <NewBuildDialog isOpen={newBuildOpen} onClose={() => setNewBuildOpen(false)} onAddBuild={onAddBuild} projects={projects} />
+        <EditBuildDialog isOpen={editBuildOpen} onClose={() => setEditBuildOpen(false)} build={selectedBuild} onSave={handleSaveBuild} isSaving={updateMutation.isPending} />
         <GenerateShortageOrdersDialog
           isOpen={shortageDialogOpen}
           onClose={() => setShortageDialogOpen(false)}
@@ -347,17 +424,9 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
                   </Badge>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1.5">
-                  {b.units} units · {b.bomRev} · {formatShortDate(b.targetDate)}
+                  {b.units} units · {b.bomRev} · {b.targetDate ? formatShortDate(b.targetDate) : 'no target date'}
                 </div>
-                {isShort ? (
-                  <div className="flex items-center gap-1 text-xs font-medium text-destructive">
-                    <Flag className="h-3 w-3" /> {b.daysLate}d past target
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-xs font-medium" style={{ color: '#16A34A' }}>
-                    <CheckCircle className="h-3 w-3" /> Complete
-                  </div>
-                )}
+                <BuildListStatusLine build={b} />
               </button>
             );
           })}
@@ -377,8 +446,12 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}% · linked to{' '}
-              <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+              BOM {selectedBuild.bomRev} · {selectedBuild.units} units · scrap {selectedBuild.scrapPct}%
+              {selectedBuild.linkedMilestone && (
+                <>
+                  {' '}· linked to <span className="font-medium text-foreground">{selectedBuild.linkedMilestone}</span>
+                </>
+              )}
               {selectedBuild.assignee && (
                 <>
                   {' '}· Assigned to <span className="font-medium text-foreground">{selectedBuild.assignee.name}</span>
@@ -387,34 +460,35 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
             </p>
           </div>
 
-          <div className="flex items-center gap-4 flex-wrap rounded-lg border p-3 shrink-0">
-            <div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Target build date</div>
-              <div className="text-lg font-bold">{formatShortDate(selectedBuild.targetDate)}</div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projected ready</div>
-              <div className="text-lg font-bold" style={{ color: selectedBuild.daysLate > 0 ? '#DC2626' : '#16A34A' }}>
-                {formatShortDate(selectedBuild.projectedDate)}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-4 flex-wrap rounded-lg border p-3">
+              <div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Target build date</div>
+                <div className={cn('text-lg font-bold', !selectedBuild.targetDate && 'text-muted-foreground font-medium')}>
+                  {selectedBuild.targetDate ? formatShortDate(selectedBuild.targetDate) : 'Not set'}
+                </div>
               </div>
-              {selectedBuild.daysLate > 0 && (
-                <div className="text-xs text-destructive">{selectedBuild.daysLate} days late</div>
-              )}
+              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projected ready</div>
+                <div
+                  className="text-lg font-bold"
+                  style={{ color: selectedBuild.daysLate > 0 ? '#DC2626' : selectedBuild.targetDate ? '#16A34A' : undefined }}
+                >
+                  {formatShortDate(selectedBuild.projectedDate)}
+                </div>
+                {selectedBuild.daysLate > 0 && (
+                  <div className="text-xs text-destructive">{selectedBuild.daysLate} days late</div>
+                )}
+              </div>
             </div>
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => setEditBuildOpen(true)} title="Edit build">
+              <Pencil className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {selectedBuild.shortLines.length > 0 && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2 text-sm">
-            <Flag className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-            <p>
-              Shortage lead time pushes the projected ready date{' '}
-              <span className="font-semibold text-destructive">{selectedBuild.daysLate} days</span> past target — milestone{' '}
-              <span className="font-semibold">{selectedBuild.linkedMilestone}</span> is flagged at-risk on the schedule.
-            </p>
-          </div>
-        )}
+        <BuildShortageBanner build={selectedBuild} />
 
         <div className="flex flex-wrap gap-2">
           <Button disabled={isKitted || !hasOutstandingDemand || allocateMutation.isPending} onClick={handleAutoAllocate}>
@@ -482,6 +556,7 @@ export function BuildsPanel({ orgId, builds, onSelectPart, openBuildId, onOpenBu
         </div>
       </div>
       <NewBuildDialog isOpen={newBuildOpen} onClose={() => setNewBuildOpen(false)} onAddBuild={onAddBuild} projects={projects} />
+      <EditBuildDialog isOpen={editBuildOpen} onClose={() => setEditBuildOpen(false)} build={selectedBuild} onSave={handleSaveBuild} isSaving={updateMutation.isPending} />
       <GenerateShortageOrdersDialog
         isOpen={shortageDialogOpen}
         onClose={() => setShortageDialogOpen(false)}
