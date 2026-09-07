@@ -47,12 +47,16 @@ import { cn } from '@/lib/utils';
 import { Layers, User, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useProjectMembers } from '@/hooks/useProjectTeam';
+import { useProjectMilestones } from '@/hooks/useMilestones';
 import { resolveFileUrl } from '@/utils/fileUrl';
 import type { TeamMember } from '@/types';
 import type { Build } from './inventoryData';
 import type { UpdateBuildDto } from '@/services/inventory.service';
 
 const BUILD_TYPES = ['EVT', 'DVT', 'PVT', 'Custom'] as const;
+
+/** Sentinel <SelectItem> value for "no linked milestone" — shadcn Select disallows an empty-string value. */
+const NO_MILESTONE = '__none__';
 
 const buildSchema = z.object({
   name: z.string().min(1, 'Name is required').max(60, 'Name must be less than 60 characters'),
@@ -89,6 +93,7 @@ export function EditBuildDialog({ isOpen, onClose, build, onSave, isSaving }: Ed
   const [isAssigneePopoverOpen, setIsAssigneePopoverOpen] = useState(false);
 
   const { data: projectMembers = [] } = useProjectMembers(build.projectId);
+  const { data: milestones = [] } = useProjectMilestones(build.projectId);
 
   const defaults: BuildFormData = {
     name: build.name,
@@ -288,15 +293,36 @@ export function EditBuildDialog({ isOpen, onClose, build, onSave, isSaving }: Ed
                 <FormField
                   control={form.control}
                   name="milestone"
-                  render={({ field }) => (
+                  render={({ field }) => {
+                    // A legacy free-text milestone may not match any current project milestone —
+                    // keep it selectable so editing another field doesn't silently drop it.
+                    const options = milestones.some(m => m.name === field.value) || !field.value
+                      ? milestones.map(m => m.name)
+                      : [field.value, ...milestones.map(m => m.name)];
+                    return (
                     <FormItem>
                       <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked milestone <span className="normal-case font-normal">optional</span></FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. MP1 Complete" {...field} />
-                      </FormControl>
+                      <Select
+                        value={field.value || NO_MILESTONE}
+                        onValueChange={(v) => field.onChange(v === NO_MILESTONE ? '' : v)}
+                        disabled={options.length === 0}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={options.length === 0 ? 'No milestones' : 'Select milestone...'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NO_MILESTONE}>None</SelectItem>
+                          {options.map((name) => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
+                    );
+                  }}
                 />
 
                 <FormField

@@ -47,11 +47,15 @@ import { cn } from '@/lib/utils';
 import { Layers, Lock, User, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useProjectMembers } from '@/hooks/useProjectTeam';
+import { useProjectMilestones } from '@/hooks/useMilestones';
 import { resolveFileUrl } from '@/utils/fileUrl';
 import type { TeamMember } from '@/types';
 import type { BuildDef } from './inventoryData';
 
 const BUILD_TYPES = ['EVT', 'DVT', 'PVT', 'Custom'] as const;
+
+/** Sentinel <SelectItem> value for "no linked milestone" — shadcn Select disallows an empty-string value. */
+const NO_MILESTONE = '__none__';
 
 const buildSchema = z.object({
   name: z.string().min(1, 'Name is required').max(60, 'Name must be less than 60 characters'),
@@ -104,6 +108,7 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
   // a build's assignee must be a member of that build's own project.
   const selectedProjectId = form.watch('projectId') || lockedProjectId;
   const { data: projectMembers = [] } = useProjectMembers(selectedProjectId);
+  const { data: milestones = [] } = useProjectMilestones(selectedProjectId ?? '');
 
   const pickAssignee = (member: TeamMember | null) => {
     setAssignee(member);
@@ -118,6 +123,15 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProjectId, projectMembers]);
+
+  // Same for a picked milestone — it belongs to a single project.
+  useEffect(() => {
+    const current = form.getValues('milestone');
+    if (current && !milestones.some(m => m.name === current)) {
+      form.setValue('milestone', '', { shouldValidate: form.formState.isSubmitted });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId, milestones]);
 
   const isFormDirty = form.formState.isDirty || assignee !== null;
 
@@ -315,9 +329,23 @@ export function NewBuildDialog({ isOpen, onClose, onAddBuild, projects, lockedPr
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Linked milestone <span className="normal-case font-normal">optional</span></FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. MP1 Complete" {...field} />
-                      </FormControl>
+                      <Select
+                        value={field.value || NO_MILESTONE}
+                        onValueChange={(v) => field.onChange(v === NO_MILESTONE ? '' : v)}
+                        disabled={milestones.length === 0}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={milestones.length === 0 ? 'No milestones' : 'Select milestone...'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NO_MILESTONE}>None</SelectItem>
+                          {milestones.map((m) => (
+                            <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
