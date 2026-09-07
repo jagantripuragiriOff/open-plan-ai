@@ -104,6 +104,7 @@ export function IssueDetailModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [hasPendingAttachmentDeletions, setHasPendingAttachmentDeletions] = useState(false);
   const [isMobileEditMode, setIsMobileEditMode] = useState(false);
   const initialSnapshotRef = useRef<string>('');
   const issueContentRef = useRef<IssueDetailContentHandle>(null);
@@ -132,6 +133,7 @@ export function IssueDetailModal({
     if (isOpen && issue) {
       setEditedIssue(issue);
       setPendingFiles([]);
+      setHasPendingAttachmentDeletions(false);
       initialSnapshotRef.current = serializeIssueForDirtyCheck(issue);
     }
     if (!isOpen) {
@@ -145,7 +147,24 @@ export function IssueDetailModal({
 
   const isDirty =
     pendingFiles.length > 0 ||
+    hasPendingAttachmentDeletions ||
     (initialSnapshotRef.current !== '' && serializeIssueForDirtyCheck(editedIssue) !== initialSnapshotRef.current);
+
+  const handleContentUpdate = (updated: Issue) => {
+    setEditedIssue(updated);
+    if (
+      initialSnapshotRef.current !== '' &&
+      (updated.attachments || []).length > 0 &&
+      !hasPendingAttachmentDeletions
+    ) {
+      try {
+        const parsed = JSON.parse(initialSnapshotRef.current);
+        if ((parsed.attachments || []).length === 0) {
+          initialSnapshotRef.current = serializeIssueForDirtyCheck(updated);
+        }
+      } catch {}
+    }
+  };
 
   const attemptClose = () => {
     if (isDirty) {
@@ -165,8 +184,10 @@ export function IssueDetailModal({
 
   const handleUpdateIssue = async () => {
     if (editedIssue && isDirty) {
-      onUpdate(editedIssue);
+      await issueContentRef.current?.commitPendingDeletions();
       await issueContentRef.current?.commitPendingComments();
+      await issueContentRef.current?.commitPendingFiles();
+      onUpdate(editedIssue);
     }
     onClose();
   };
@@ -305,11 +326,12 @@ export function IssueDetailModal({
               teamMembers={teamMembers}
               projectName={projectName}
               projectCode={projectCode}
-              onUpdate={setEditedIssue}
+              onUpdate={handleContentUpdate}
               onDelete={undefined}
               isDraft={true} // Always pretend it's draft to enable auto-callbacks to onUpdate instead of parent
               mode={mode}
               onPendingFilesChange={setPendingFiles}
+              onPendingAttachmentDeletionsChange={setHasPendingAttachmentDeletions}
               onExpand={undefined}
               isMobileEditMode={mode !== 'create' ? isMobileEditMode : undefined}
             />
