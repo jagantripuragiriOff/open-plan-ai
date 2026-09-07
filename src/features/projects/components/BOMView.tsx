@@ -110,6 +110,8 @@ import {
   fromApiNode, applyPriceRollup, assignLevelLabels, formatLeadTime,
   describeDeleteImpact,
 } from './bomData';
+import type { ApiPartResponse } from './bomData';
+import { BOMCatalogPartPicker } from './BOMCatalogPartPicker';
 import { BOMStatusPill, ReqTag, PartImageThumb } from './BOMShared';
 import { BOMDetailScreen, AddSubcomponentDialog } from './BOMDetailScreen';
 import { BOMMapView } from './BOMMapView';
@@ -1376,6 +1378,9 @@ export function BOMView({
   const fallbackPartId = searchParams.get('partId');
   const fallbackPn = searchParams.get('pn');
   const [addChoiceOpen, setAddChoiceOpen] = useState(false);
+  // "Add Manually" opens the catalog picker first — pick an existing org part
+  // (quick add), or fall through to the new-part wizard (addManualOpen).
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [addManualOpen, setAddManualOpen] = useState(false);
   const [addImportOpen, setAddImportOpen] = useState(false);
   const [addAiImportOpen, setAddAiImportOpen] = useState(false);
@@ -1537,6 +1542,31 @@ export function BOMView({
     part: Awaited<ReturnType<typeof createPart.mutateAsync>>;
     node: Awaited<ReturnType<typeof createNode.mutateAsync>>;
   } | null>(null);
+
+  // partIds already used anywhere in this BOM — the catalog picker flags them.
+  const existingBomPartIds = useMemo(
+    () => new Set(allNodes.map(n => n._partId).filter((id): id is string => !!id)),
+    [allNodes],
+  );
+
+  // ── Quick-add an existing catalog part as a Draft BOM line (editable in the row) ─
+  const handleAddExistingPart = async (part: ApiPartResponse) => {
+    try {
+      await createNode.mutateAsync({
+        partId: part.id,
+        quantity: 1,
+        unit: part.unit,
+        status: 'draft',
+      });
+      toast.success(`${part.partNumber} added to BOM`);
+      setAddPickerOpen(false);
+      onAddClose?.();
+    } catch (err) {
+      toast.error('Failed to add part', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
 
   // ── Add Part handler (two-step: create part in catalog, then node) ─
   const handleAddPart = async (payload: BOMPartPayload) => {
@@ -2135,7 +2165,7 @@ export function BOMView({
           </DialogHeader>
           <div className="flex flex-col gap-2 px-4 py-4">
             <button
-              onClick={() => { setAddChoiceOpen(false); setAddManualOpen(true); }}
+              onClick={() => { setAddChoiceOpen(false); setAddPickerOpen(true); }}
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-border bg-card hover:bg-muted/60 hover:border-foreground/20 transition-colors text-left group"
             >
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
@@ -2143,7 +2173,7 @@ export function BOMView({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-foreground">Add Manually</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Create one new part using the part details form.</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Pick an existing part, or create a new one with the part details form.</div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
             </button>
@@ -2200,6 +2230,18 @@ export function BOMView({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Part — catalog picker (shown after "Add Manually"; quick-add or create new) */}
+      {addPickerOpen && (
+        <BOMCatalogPartPicker
+          open={addPickerOpen}
+          onClose={() => { setAddPickerOpen(false); onAddClose?.(); }}
+          orgId={orgId}
+          existingPartIds={existingBomPartIds}
+          onSelect={handleAddExistingPart}
+          onCreateNew={() => { setAddPickerOpen(false); setAddManualOpen(true); }}
+        />
+      )}
 
       {/* Add Part sheet — manual */}
       <BOMPartSheet
