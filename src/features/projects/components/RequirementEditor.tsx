@@ -127,7 +127,7 @@ function highlightEARS(text: string): React.ReactNode {
 
 // ── Editor entry point ────────────────────────────────────────────────────────
 export default function RequirementEditor({ reqKey, projectId, groups, onClose, onSaved }:
-  { reqKey: string|null; projectId: string; groups: ApiRequirementGroup[]; onClose: () => void; onSaved: () => void }) {
+  { reqKey: string|null; projectId: string; groups: ApiRequirementGroup[]; onClose: () => void; onSaved: (createdKey?: string) => void }) {
 
   const existing = reqKey ? BY_KEY[reqKey] : null;
   const [form, setForm] = useState<FormState>(() => {
@@ -219,6 +219,7 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
       : null;
 
     try {
+      let createdKey: string | undefined = undefined;
       if (existing?._id) {
         await updateMutation.mutateAsync({
           requirementId: existing._id,
@@ -237,7 +238,7 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
         });
         toast.success('Requirement updated');
       } else {
-        await createMutation.mutateAsync({
+        const result = await createMutation.mutateAsync({
           groupId: form.groupId,
           parentId: form.parentId || null,
           type: form.type.replace(/-/g, '_'),
@@ -249,9 +250,10 @@ export default function RequirementEditor({ reqKey, projectId, groups, onClose, 
           target,
           ownerId: form.owner || undefined,
         });
+        createdKey = result?.key;
         toast.success('Requirement created');
       }
-      onSaved();
+      onSaved(createdKey);
     } catch {
       toast.error(existing ? 'Failed to update requirement' : 'Failed to create requirement');
     }

@@ -274,7 +274,14 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
     <div className="flex flex-col overflow-hidden bg-background" style={{ height: 'calc(100vh - 75px)' }}>
       <RequirementEditor reqKey={editKey} projectId={projectId} groups={groups}
         onClose={() => { setEditorOpen(false); setEditKey(null); }}
-        onSaved={() => { setEditorOpen(false); setEditKey(null); }} />
+        onSaved={(newKey) => {
+          setEditorOpen(false);
+          const targetKey = newKey || editKey;
+          setEditKey(null);
+          if (targetKey) {
+            onSelectedKeyChange?.(targetKey);
+          }
+        }} />
     </div>
   );
   if (detailKey) return (
