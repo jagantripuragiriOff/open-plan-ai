@@ -1392,6 +1392,8 @@ export function BOMView({
   const [sheetsPullOpen, setSheetsPullOpen] = useState(false);
   const [sheetsPushOpen, setSheetsPushOpen] = useState(false);
   const [addSubNode, setAddSubNode] = useState<BOMNode | null>(null);
+  // "Add Manually" on a sub-component opens the catalog picker against this parent first.
+  const [subPickerNode, setSubPickerNode] = useState<BOMNode | null>(null);
   const [createSubNode, setCreateSubNode] = useState<BOMNode | null>(null);
   const [importSubNode, setImportSubNode] = useState<BOMNode | null>(null);
 
@@ -1568,6 +1570,33 @@ export function BOMView({
       onAddClose?.();
     } catch (err) {
       toast.error('Failed to add part', {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
+  // ── Quick-add an existing catalog part as a Draft sub-component of `parent` ─
+  const handleAddExistingSub = async (part: ApiPartResponse, parent: BOMNode) => {
+    const childIds = new Set(
+      (parent.children ?? []).map(c => c._partId).filter((id): id is string => !!id),
+    );
+    if (childIds.has(part.id)) {
+      toast.error(`${part.partNumber} is already a sub-component of ${parent.pn}`);
+      return;
+    }
+    try {
+      await createNode.mutateAsync({
+        partId: part.id,
+        quantity: 1,
+        unit: part.unit,
+        status: 'draft',
+        parentId: parent.id,
+      });
+      toast.success(`${part.partNumber} added under ${parent.pn}`);
+      setSubPickerNode(null);
+      expandNodes([parent.id]);
+    } catch (err) {
+      toast.error('Failed to add sub-component', {
         description: err instanceof Error ? err.message : undefined,
       });
     }
@@ -2310,8 +2339,21 @@ export function BOMView({
           open={!!addSubNode}
           onClose={() => setAddSubNode(null)}
           parentNode={addSubNode}
-          onCreateNew={() => { setCreateSubNode(addSubNode); setAddSubNode(null); }}
+          onAddManually={() => { setSubPickerNode(addSubNode); setAddSubNode(null); }}
           onImportExcel={() => { setImportSubNode(addSubNode); setAddSubNode(null); }}
+        />
+      )}
+
+      {/* Sub-component catalog picker (quick-add an existing part, or create new) */}
+      {subPickerNode && (
+        <BOMCatalogPartPicker
+          open={!!subPickerNode}
+          onClose={() => setSubPickerNode(null)}
+          orgId={orgId}
+          disabledPartIds={new Set((subPickerNode.children ?? []).map(c => c._partId).filter((id): id is string => !!id))}
+          disabledReason="Already a sub-component"
+          onSelect={(part) => handleAddExistingSub(part, subPickerNode)}
+          onCreateNew={() => { setCreateSubNode(subPickerNode); setSubPickerNode(null); }}
         />
       )}
 
