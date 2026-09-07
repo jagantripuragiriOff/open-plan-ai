@@ -942,7 +942,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                     )}
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[260px]" align="start">
+                            <PopoverContent className="p-0 w-[260px] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                 <Command>
                                     <CommandInput placeholder="Search members..." />
 
@@ -1148,7 +1148,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                 : 'Set date'}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align="start">
                                         <Calendar
                                             mode="single"
                                             selected={editedIssue.dueDate ? parseISO(editedIssue.dueDate) : undefined}
@@ -1447,7 +1447,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     <Plus className="h-3 w-3" />
                                                 </button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[240px] flex flex-col overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[240px] flex flex-col min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput
                                                         ref={tagSearchInputRef}
@@ -2027,7 +2027,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     Select task...
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput placeholder="Search tasks..." />
                                                     <CommandList
@@ -2115,7 +2115,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     Select task...
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput placeholder="Search tasks..." />
                                                     <CommandList

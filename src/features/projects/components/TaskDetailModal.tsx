@@ -1548,7 +1548,7 @@ export const TaskDetailModal = ({
                         )}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="p-0 w-[260px]" align="start">
+                    <PopoverContent className="p-0 w-[260px] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                       <Command>
                         <CommandInput placeholder="Search members..." />
 
@@ -1744,7 +1744,7 @@ export const TaskDetailModal = ({
                               : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align={isMobile ? "center" : "start"}>
+                        <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align={isMobile ? "center" : "start"}>
                           <Calendar
                             mode="single"
                             selected={editedTask.startDate ? new Date(editedTask.startDate) : undefined}
@@ -1799,7 +1799,7 @@ export const TaskDetailModal = ({
                               : 'Set date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align={isMobile ? "center" : "start"}>
+                        <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align={isMobile ? "center" : "start"}>
                           <Calendar
                             mode="single"
                             selected={editedTask.dueDate ? new Date(editedTask.dueDate) : undefined}
@@ -2094,7 +2094,7 @@ export const TaskDetailModal = ({
                               </span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="p-0 w-[240px] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                          <PopoverContent className="p-0 w-[240px] min-h-[160px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                             <Command>
                               <CommandInput placeholder="Search modules..." />
                               <CommandList className="max-h-[calc(var(--radix-popover-content-available-height)_-_45px)] overflow-y-auto">
@@ -2264,7 +2264,7 @@ export const TaskDetailModal = ({
                                 <Plus className="h-3 w-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[240px] flex flex-col overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[240px] flex flex-col min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <div className="p-2 border-b">
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -2797,7 +2797,7 @@ export const TaskDetailModal = ({
                                 Select task...
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <Command>
                                 <CommandInput placeholder="Search tasks..." />
                                 <CommandList
@@ -2886,7 +2886,7 @@ export const TaskDetailModal = ({
                                 Select task...
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <Command>
                                 <CommandInput placeholder="Search tasks..." />
                                 <CommandList
