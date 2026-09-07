@@ -11,6 +11,7 @@ const shortLine: BuildBomLine = {
   onHand: 0,
   allocated: 0,
   onOrder: 0,
+  quarantineQty: 0,
   leadTimeDays: 21,
   required: 5,
   shortage: 5,
@@ -67,5 +68,18 @@ describe('buildFromDef', () => {
     const build = buildFromDef({ ...baseDef, targetDate: target.toISOString() }, [covered]);
     expect(build.shortLines).toHaveLength(0);
     expect(build.daysLate).toBe(0);
+  });
+
+  it('holds quarantined on-hand out of a build line\'s available stock', () => {
+    // 24 on hand but all of it quarantined (e.g. sitting in the "Quarantine" location) —
+    // the line must read short, not ready, matching the part-detail page.
+    const quarantined: BuildBomLine = {
+      ...shortLine, qtyPerUnit: 1, required: 1, shortage: 1,
+      onHand: 24, quarantineQty: 24,
+    };
+    const build = buildFromDef(baseDef, [quarantined]);
+    expect(build.lines[0].available).toBe(0);
+    expect(build.lines[0].status).toBe('short');
+    expect(build.shortLines).toHaveLength(1);
   });
 });

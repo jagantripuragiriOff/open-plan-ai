@@ -681,6 +681,9 @@ export interface BuildBomLine {
   onHand: number;
   allocated: number;
   onOrder: number;
+  /** On-hand quantity held out of usable stock — real received-under-quarantine plus stock
+   * sitting in a location named "Quarantine" (folded server-side, see getBuildBomLines). */
+  quarantineQty: number;
   leadTimeDays: number;
   required: number;
   shortage: number;
@@ -726,6 +729,7 @@ export function buildFromDef(def: BuildDef, bomLines: BuildBomLine[]): Build {
     const stockLike: StockRecord = {
       id: r.partId, partId: r.partId, pn: r.pn, name: r.name, cat: r.cat,
       onHand: r.onHand, allocated: r.allocated, onOrder: r.onOrder,
+      quarantineQty: r.quarantineQty || undefined,
       location: '', leadTimeDays: r.leadTimeDays, createdAt: '',
     };
     const status = computeCoverage(stockLike, required);

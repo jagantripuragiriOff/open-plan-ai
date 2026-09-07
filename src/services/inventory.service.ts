@@ -96,6 +96,7 @@ export interface ApiBuildBomLine {
   onHand: number;
   allocated: number;
   onOrder: number;
+  quarantineQty: number;
   leadTimeDays: number;
   required: number;
   shortage: number;
@@ -241,6 +242,7 @@ export function fromApiBuildBomLine(r: ApiBuildBomLine): BuildBomLine {
     onHand: r.onHand,
     allocated: r.allocated,
     onOrder: r.onOrder,
+    quarantineQty: r.quarantineQty ?? 0,
     leadTimeDays: r.leadTimeDays,
     required: r.required,
     shortage: r.shortage,
