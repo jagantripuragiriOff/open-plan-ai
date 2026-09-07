@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -397,9 +398,9 @@ function TraceTab({ r, projectId, onNavigate }: { r: Requirement; projectId: str
             });
           }} />
       )}
-      <LinkGroup title="Upstream" icon={ArrowUpRight} links={upstream} onNavigate={onNavigate} onDelete={handleDelete} tint="#9333EA"/>
-      <LinkGroup title="Downstream" icon={ArrowDownRight} links={downstream} onNavigate={onNavigate} onDelete={handleDelete} tint="#2563EB"/>
-      <LinkGroup title="Peer" icon={ArrowRightIcon} links={peer} onNavigate={onNavigate} onDelete={handleDelete} tint="#64748B"/>
+      <LinkGroup title="Upstream" icon={ArrowUpRight} links={upstream} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#9333EA"/>
+      <LinkGroup title="Downstream" icon={ArrowDownRight} links={downstream} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#2563EB"/>
+      <LinkGroup title="Peer" icon={ArrowRightIcon} links={peer} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#64748B"/>
     </div>
   );
 }
@@ -435,7 +436,8 @@ function AddLinkForm({ r, onClose, onCreate, pending }: { r: Requirement; onClos
   );
 }
 
-function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { title:string; icon:React.ElementType; links:Requirement['links']; onNavigate:(k:string)=>void; onDelete:(linkId:string)=>void; tint:string }) {
+function LinkGroup({ title, icon:Ic, links, projectId, onNavigate, onDelete, tint }: { title:string; icon:React.ElementType; links:Requirement['links']; projectId?: string; onNavigate:(k:string)=>void; onDelete:(linkId:string)=>void; tint:string }) {
+  const navigate = useNavigate();
   if (!links.length) return null;
   return (
     <div>
@@ -450,11 +452,25 @@ function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { titl
         {links.map((l,i) => {
           const target = BY_KEY[l.target];
           const isSuspect = l.status === 'suspect';
+          const isPart = l.kind === 'part';
+          const isEco = l.kind === 'eco';
+          const isClickable = (target && !l.external) || isPart || isEco;
+
+          const handleClick = () => {
+            if (isPart && projectId) {
+              navigate(`/projects/${projectId}/bom/${l.target}`);
+            } else if (isEco && projectId) {
+              navigate(`/projects/${projectId}/eng-changes/${l.target}`);
+            } else if (target && !l.external) {
+              onNavigate(l.target);
+            }
+          };
+
           return (
-            <div key={i} onClick={() => { if (target && !l.external) onNavigate(l.target); }}
+            <div key={i} onClick={handleClick}
               title={l.kind==='part' && l.rationale ? l.rationale : undefined}
-              style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, border:`1px solid ${isSuspect ? softTint('#DC2626',0.35) : 'hsl(var(--border))'}`, background: isSuspect ? softTint('#DC2626',0.04) : 'hsl(var(--card))', cursor: target && !l.external ? 'pointer' : 'default', transition:'background .1s' }}
-              onMouseEnter={e=>{ if(target&&!l.external) e.currentTarget.style.background='hsl(var(--muted))'; }}
+              style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, border:`1px solid ${isSuspect ? softTint('#DC2626',0.35) : 'hsl(var(--border))'}`, background: isSuspect ? softTint('#DC2626',0.04) : 'hsl(var(--card))', cursor: isClickable ? 'pointer' : 'default', transition:'background .1s' }}
+              onMouseEnter={e=>{ if(isClickable) e.currentTarget.style.background='hsl(var(--muted))'; }}
               onMouseLeave={e=>{ e.currentTarget.style.background=isSuspect?softTint('#DC2626',0.04):'hsl(var(--card))'; }}>
               <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11.5, fontWeight:600, color: l.kind==='part'?'#D97706':l.kind==='test'?'#9333EA':l.kind==='eco'?'#DC2626':'#3B82F6', width:90, flexShrink:0 }}>{l.target}</span>
               <span style={{ color:'hsl(var(--muted-foreground))', flex:'0 0 100px', fontSize:11, fontWeight:500 }}>{REQ_LINKTYPE[l.type]?.label ?? l.type}</span>
@@ -479,7 +495,7 @@ function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { titl
                   <X size={12} color="hsl(var(--muted-foreground))"/>
                 </button>
               )}
-              {target && !l.external && <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>}
+              {isClickable && <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>}
             </div>
           );
         })}

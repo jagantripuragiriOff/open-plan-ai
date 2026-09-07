@@ -506,7 +506,7 @@ export function describeDeleteImpact(node: BOMNode): { title: string; descriptio
 
 export const bomFind = (id: string, nodes: BOMNode[] = BOM_NODES): BOMNode | null => {
   for (const n of nodes) {
-    if (n.id === id) return n;
+    if (n.id === id || n.pn === id || n._partId === id || (id && n.pn?.toLowerCase() === id.toLowerCase())) return n;
     if (n.children) { const f = bomFind(id, n.children); if (f) return f; }
   }
   return null;
@@ -515,7 +515,7 @@ export const bomFind = (id: string, nodes: BOMNode[] = BOM_NODES): BOMNode | nul
 export const bomPath = (id: string, nodes: BOMNode[] = BOM_NODES, trail: BOMNode[] = []): BOMNode[] | null => {
   for (const n of nodes) {
     const t = [...trail, n];
-    if (n.id === id) return t;
+    if (n.id === id || n.pn === id || n._partId === id || (id && n.pn?.toLowerCase() === id.toLowerCase())) return t;
     if (n.children) { const f = bomPath(id, n.children, t); if (f) return f; }
   }
   return null;

@@ -1795,7 +1795,8 @@ export function BOMView({
     // silently surface the wrong part.
     const node = (selectedNode && (!fallbackPartId || selectedNode._partId === fallbackPartId) ? selectedNode : null)
       || (fallbackPartId ? allNodes.find(n => n._partId === fallbackPartId) ?? null : null)
-      || (fallbackPn ? allNodes.find(n => n.pn === fallbackPn) ?? null : null);
+      || (fallbackPn ? allNodes.find(n => n.pn === fallbackPn || n.pn.toLowerCase() === fallbackPn.toLowerCase()) ?? null : null)
+      || (selected ? allNodes.find(n => n.pn === selected || n.pn.toLowerCase() === selected.toLowerCase() || n._partId === selected || n.id === selected) ?? null : null);
     if (node) return (
       <BOMDetailScreen
         node={node}
