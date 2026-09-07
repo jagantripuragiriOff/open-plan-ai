@@ -877,13 +877,16 @@ function RecordExecutionForm({ testCase, requirement, builds, onClose, onRecord,
           {builds.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type}, {b.status})</option>)}
         </select>
       )}
-      {(!isTestMethod || !measuredValue) && (
-        <select value={result} onChange={e => setResult(e.target.value as ApiTestExecutionResult)} style={inputStyle}>
-          <option value="pass">Pass</option>
-          <option value="fail">Fail</option>
-          <option value="waived">Waived</option>
-        </select>
+      {isTestMethod && measuredValue && (
+        <div style={{ fontSize:11, color:'hsl(var(--muted-foreground))' }}>
+          Fallback result — only used if pass/fail can't be computed from the measured value above (e.g. a non-numeric or one-sided tolerance like "max"):
+        </div>
       )}
+      <select value={result} onChange={e => setResult(e.target.value as ApiTestExecutionResult)} style={inputStyle}>
+        <option value="pass">Pass</option>
+        <option value="fail">Fail</option>
+        <option value="waived">Waived</option>
+      </select>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)" rows={2}
         style={{ borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--background))', color:'hsl(var(--foreground))', fontFamily:'inherit', fontSize:12.5, padding:8, resize:'vertical' }}/>
       <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11.5, color:'hsl(var(--muted-foreground))', cursor:'pointer' }}>
@@ -897,7 +900,7 @@ function RecordExecutionForm({ testCase, requirement, builds, onClose, onRecord,
           onClick={() => onRecord({
             measuredValue: isTestMethod && measuredValue ? parseFloat(measuredValue) : undefined,
             unit: isTestMethod && unit ? unit : undefined,
-            result: (!isTestMethod || !measuredValue) ? result : undefined,
+            result,
             notes: notes.trim() || undefined,
             buildId: buildId || undefined,
           }, evidenceFile ?? undefined)}
