@@ -1415,14 +1415,19 @@ export function BOMView({
   const [filterOpen, setFilterOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [filters, setFilters] = useState<BOMFilters>({ ...EMPTY_FILTERS });
-  // The toolbar's All/Approved/Pending/Rejected quick-tab is a multi-select shortcut
-  // over the same status filter the drawer's Status chips edit — both read/write
-  // filters.statuses directly (toggling membership, same as the drawer chips) so the
-  // two controls always reflect the exact same selection and can never disagree.
+  // The drawer's Status chips are multi-select; the toolbar's All/Approved/Pending/
+  // Rejected/Draft segmented control is single-select — clicking a segment narrows
+  // the filter to just that status (clicking the active one again falls back to All).
+  // Both read/write filters.statuses directly so the two controls stay consistent.
   const toggleFilterStatus = (id: BOMStatus) =>
     setFilters(f => ({
       ...f,
       statuses: f.statuses.includes(id) ? f.statuses.filter(s => s !== id) : [...f.statuses, id],
+    }));
+  const selectFilterStatus = (id: BOMStatus) =>
+    setFilters(f => ({
+      ...f,
+      statuses: f.statuses.length === 1 && f.statuses[0] === id ? [] : [id],
     }));
   const clearFilterStatus = () => setFilters(f => ({ ...f, statuses: [] }));
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
@@ -1882,15 +1887,17 @@ export function BOMView({
   }
 
   const Tab = ({ id, label }: { id: 'all' | BOMStatus; label: string }) => {
-    const active = id === 'all' ? filters.statuses.length === 0 : filters.statuses.includes(id);
+    const active = id === 'all'
+      ? filters.statuses.length === 0
+      : filters.statuses.length === 1 && filters.statuses[0] === id;
     return (
       <button
-        onClick={() => id === 'all' ? clearFilterStatus() : toggleFilterStatus(id)}
+        onClick={() => id === 'all' ? clearFilterStatus() : selectFilterStatus(id)}
         className={cn(
-          'px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer border transition-colors',
+          'px-3 py-1 rounded-md text-xs font-medium cursor-pointer border-none transition-colors',
           active
-            ? 'bg-primary/10 text-primary border-primary/25'
-            : 'text-muted-foreground border-transparent hover:text-foreground'
+            ? 'bg-card text-foreground shadow-sm'
+            : 'bg-transparent text-muted-foreground hover:text-foreground'
         )}
       >
         {label}
@@ -1941,11 +1948,13 @@ export function BOMView({
             )}
           </div>
 
-          <Tab id="all" label="All" />
-          <Tab id="approved" label="Approved" />
-          <Tab id="pending" label="Pending" />
-          <Tab id="rejected" label="Rejected" />
-          <Tab id="draft" label="Draft" />
+          <div className="flex bg-muted border border-border rounded-lg p-0.5 gap-0.5">
+            <Tab id="all" label="All" />
+            <Tab id="approved" label="Approved" />
+            <Tab id="pending" label="Pending" />
+            <Tab id="rejected" label="Rejected" />
+            <Tab id="draft" label="Draft" />
+          </div>
 
           <div className="flex-1" />
 
