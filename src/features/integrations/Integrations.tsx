@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 interface Integration {
   id: string;
   name: string;
+  badge?: string;
   description: string;
   logo: LogoSpec;
   color: string;
@@ -106,6 +107,7 @@ const SECTIONS: Section[] = [
       {
         id: 'requirements',
         name: 'Requirements',
+        badge: '(BETA)',
         description: 'Trace requirements through tasks, modules, and ECOs for full coverage.',
         logo: { kind: 'icon', icon: ClipboardList },
         color: '#2563EB',
@@ -524,7 +526,14 @@ export default function Integrations() {
                           </Badge>
                         )}
                       </div>
-                      <h3 className="font-medium text-foreground mb-1">{integration.name}</h3>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <h3 className="font-medium text-foreground">{integration.name}</h3>
+                        {integration.badge && (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {integration.badge}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground flex-1">
                         {isGoogleMeet && isMeetConnected && meetEmail
                           ? `Connected as ${meetEmail}`
