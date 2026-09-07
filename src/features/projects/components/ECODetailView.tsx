@@ -1290,7 +1290,7 @@ export function ECODetailView({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background px-4 md:px-6 py-4 md:py-5 pb-12 h-full">
+    <div className="flex-1 overflow-y-auto bg-background px-4 md:px-6 pt-0 md:pt-1 pb-12 h-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground mb-3">
         {projectName && (
