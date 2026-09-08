@@ -36,16 +36,16 @@ export function ModulesListView({ modules, onModuleClick }: ModulesListViewProps
   }
 
   return (
-    <div className="rounded-lg border bg-card min-h-[calc(100vh-260px)]">
+    <div className="rounded-lg border bg-card overflow-hidden overflow-x-auto">
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[250px]">Module</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Owner</TableHead>
-            <TableHead className="text-center">Tasks</TableHead>
-            <TableHead className="w-[180px]">Progress</TableHead>
-            <TableHead className="text-center">Issues</TableHead>
+        <TableHeader className="bg-muted/40 border-b border-border">
+          <TableRow className="bg-background hover:bg-background">
+            <TableHead className="w-[250px] bg-background font-semibold text-foreground">Module</TableHead>
+            <TableHead className="bg-background font-semibold text-foreground">Type</TableHead>
+            <TableHead className="bg-background font-semibold text-foreground">Owner</TableHead>
+            <TableHead className="text-center bg-background font-semibold text-foreground">Tasks</TableHead>
+            <TableHead className="w-[180px] bg-background font-semibold text-foreground">Progress</TableHead>
+            <TableHead className="text-center bg-background font-semibold text-foreground">Issues</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

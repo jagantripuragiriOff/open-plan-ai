@@ -242,31 +242,31 @@ export function ListView({ tasks, allTasks: allTasksProp, milestones = [], modul
   return (
     <>
 
-      <div className="rounded-lg border bg-card min-h-[calc(100vh-260px)] flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto">
-        <Table containerClassName="relative w-full overflow-visible">
-          <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-            <TableRow className="bg-background">
-              <TableHead className="w-[300px] sticky top-0 z-10 bg-background">
+      <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+        <Table containerClassName="relative w-full">
+          <TableHeader className="bg-muted/40 border-b border-border">
+            <TableRow className="bg-background hover:bg-background">
+              <TableHead className="w-[300px] bg-background font-semibold text-foreground">
                 <SortableHeader field="title">Task</SortableHeader>
               </TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">
+              <TableHead className="bg-background font-semibold text-foreground">
                 <SortableHeader field="status">Status</SortableHeader>
               </TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">
+              <TableHead className="bg-background font-semibold text-foreground">
                 <SortableHeader field="priority">Priority</SortableHeader>
               </TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">
+              <TableHead className="bg-background font-semibold text-foreground">
                 <SortableHeader field="module">Module</SortableHeader>
               </TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">Milestone</TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">
+              <TableHead className="bg-background font-semibold text-foreground">Milestone</TableHead>
+              <TableHead className="bg-background font-semibold text-foreground">
                 <SortableHeader field="assignee">Assignee</SortableHeader>
               </TableHead>
-              <TableHead className="sticky top-0 z-10 bg-background">
+              <TableHead className="bg-background font-semibold text-foreground">
                 <SortableHeader field="dueDate">Due Date</SortableHeader>
               </TableHead>
-              <TableHead className="w-[80px] text-center sticky top-0 z-10 bg-background">Blockers</TableHead>
+              <TableHead className="w-[80px] text-center bg-background font-semibold text-foreground">Blockers</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

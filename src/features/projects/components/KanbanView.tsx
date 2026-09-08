@@ -626,7 +626,7 @@ export function KanbanView({ tasks: initialTasks, allTasks, issues = [], assigna
                 className={
                   isMobile
                     ? 'flex flex-col gap-3 w-full'
-                    : 'inline-flex gap-4 min-w-full h-full min-h-0 flex-1'
+                    : 'inline-flex gap-4 min-w-full h-full min-h-0 flex-1 pr-4 md:pr-6'
                 }
                 style={isMobile ? undefined : { width: 'max-content' }}
               >
@@ -1024,7 +1024,7 @@ export function KanbanView({ tasks: initialTasks, allTasks, issues = [], assigna
 
                 {/* Add Bucket Button */}
                 <div className={isMobile ? 'w-full' : 'w-[280px] flex-shrink-0'}>
-                  <div className={isMobile ? 'pb-1' : 'sticky top-0 bg-background z-10 pb-3 space-y-3'}>
+                  <div className={isMobile ? 'pb-1' : 'bg-background pb-3 space-y-3'}>
                     {!isMobile && (
                       <div className="flex items-center gap-2 px-1">
                         <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />

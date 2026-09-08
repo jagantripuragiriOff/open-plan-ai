@@ -1510,7 +1510,7 @@ export default function ProjectDetail() {
               underneath it (e.g. BOMDetailScreen's own header, which scrolls in
               its own inner container). */}
           {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
-          <div ref={setStickyHeaderEl} className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2.5 pb-2.5 border-b border-border md:-mx-6 md:px-6 md:pt-0 md:pb-2.5 will-change-transform">
+          <div ref={setStickyHeaderEl} className="sticky -top-4 md:-top-4 z-20 bg-background -mt-4 pt-4 -mx-4 px-4 pb-2.5 border-b border-border md:-mx-6 md:px-6 md:pb-2.5 will-change-transform">
             {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
               <div className="flex flex-row md:items-center justify-between gap-2 w-full pb-1">
                 {/* Left Side: Tabs */}
@@ -1674,7 +1674,7 @@ export default function ProjectDetail() {
 
               {/* Second Row: Search + View Toggle + Filter toolbar (below tabs, like BOM UI) */}
               {(section === 'tasks' || section === 'modules' || section === 'milestones' || section === 'issues') && !isMobileModuleDetailOpen && (
-                <div className="flex items-center justify-between gap-3 mt-3 md:pb-3 w-full bg-background">
+                <div className="flex items-center justify-between gap-3 mt-2.5 pb-2.5 w-full bg-background">
                   {section === 'tasks' && (
                     <>
                       {/* Left: Search */}
@@ -1883,7 +1883,7 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          <TabsContent value="tasks" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="tasks" className="mt-3 md:mt-4 flex flex-col">
             <TasksSection
               tasks={filteredTasks}
               allTasks={project.tasks || []}
@@ -1905,7 +1905,7 @@ export default function ProjectDetail() {
               onAddModule={canAddModulesAndMilestones ? handleAddModule : undefined}
             />
           </TabsContent>
-          <TabsContent value="modules" className={isMobileModuleDetailOpen ? '-mx-4' : 'mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col'}>
+          <TabsContent value="modules" className={isMobileModuleDetailOpen ? '-mx-4' : 'mt-3 md:mt-4 flex flex-col'}>
             <ModulesSection
               modules={modules}
               tasks={project.tasks || []}
@@ -1926,7 +1926,7 @@ export default function ProjectDetail() {
               onMobileDetailOpenChange={setIsMobileModuleDetailOpen}
             />
           </TabsContent>
-          <TabsContent value="milestones" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="milestones" className="mt-3 md:mt-4 flex flex-col">
             <MilestonesView
               milestones={project.milestones || []}
               tasks={project.tasks || []}
@@ -1945,7 +1945,7 @@ export default function ProjectDetail() {
               stickyOffset={stickyHeaderHeight}
             />
           </TabsContent>
-          <TabsContent value="issues" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col bg-background">
+          <TabsContent value="issues" className="mt-3 md:mt-4 flex flex-col bg-background">
             <IssuesView
               issues={project.issues || []}
               projectCode={project.code}
@@ -1977,7 +1977,7 @@ export default function ProjectDetail() {
               stickyOffset={stickyHeaderHeight}
             />
           </TabsContent>
-          <TabsContent value="bom" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="bom" className="mt-3 md:mt-4 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <BOMView
               projectId={project.id}
               orgId={currentOrganization?.id ?? ''}
@@ -1990,7 +1990,7 @@ export default function ProjectDetail() {
               onEcoCreated={(ecoId) => navigate(`/projects/${id}/eng-changes/${ecoId}`)}
             />
           </TabsContent>
-          <TabsContent value="requirements" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="requirements" className="mt-3 md:mt-4 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <RequirementsView
               projectId={project.id}
               orgId={currentOrganization?.id ?? ''}
@@ -2002,7 +2002,7 @@ export default function ProjectDetail() {
               onEcoCreated={(ecoId) => navigate(`/projects/${id}/eng-changes/${ecoId}`)}
             />
           </TabsContent>
-          <TabsContent value="eng-changes" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="eng-changes" className="mt-3 md:mt-4 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <ECOView
               projectId={id!}
               projectName={project?.name}
@@ -2014,10 +2014,10 @@ export default function ProjectDetail() {
               }
             />
           </TabsContent>
-          <TabsContent value="gate-reviews" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="gate-reviews" className="mt-3 md:mt-4 flex flex-col">
             <GateView />
           </TabsContent>
-          <TabsContent value="risk" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="risk" className="mt-3 md:mt-4 flex flex-col">
             <RiskView />
           </TabsContent>
         </Tabs>
