@@ -113,7 +113,12 @@ export const projectsService = {
    * Get all projects for an organization
    */
   async getByOrg(orgId: string): Promise<Project[]> {
-    return apiClient.get<Project[]>(ENDPOINTS.PROJECTS.LIST(orgId));
+    // Backend paginates this endpoint (default limit 20) and sorts pinned-first.
+    // The frontend does its own client-side search/sort/pagination over the
+    // full list, so request the backend's max page size rather than its default —
+    // otherwise pinning/unpinning a project can shift it in or out of a
+    // truncated window and make it appear to vanish from the list.
+    return apiClient.get<Project[]>(ENDPOINTS.PROJECTS.LIST(orgId), { params: { limit: 100 } });
   },
 
   /**
