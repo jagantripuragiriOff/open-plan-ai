@@ -347,8 +347,9 @@ export function ECOListView({
   const [importOpen, setImportOpen] = useState(false);
 
   const exportDetailedCsv = useExportEcoDetailedCsv(projectId);
+  const exportSummaryCsv = useExportEcoSummaryCsv(projectId);
   const [exportingAll, setExportingAll] = useState(false);
-  const exporting = exportDetailedCsv.isPending || exportingAll;
+  const exporting = exportDetailedCsv.isPending || exportSummaryCsv.isPending || exportingAll;
 
   const apiFilters: Record<string, string> = {};
   if (fStatus   !== 'ALL') apiFilters.status   = fStatus.toLowerCase();
@@ -378,13 +379,13 @@ export function ECOListView({
     setPage(1);
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: 'summary' | 'detailed') => {
     if (total === 0) return;
     try {
       setExportingAll(true);
       const ids = await fetchAllEcoIds(projectId, apiFilters);
-      const blob = await exportDetailedCsv.mutateAsync(ids);
-      downloadEcoCsv(blob, 'detailed', ids.length);
+      const blob = await (format === 'summary' ? exportSummaryCsv : exportDetailedCsv).mutateAsync(ids);
+      downloadEcoCsv(blob, format, ids.length);
       flash(`Exported ${ids.length} change order(s)`);
     } catch {
       flash('Failed to export');
@@ -483,17 +484,29 @@ export function ECOListView({
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0">
                   <Sel value={fStatus}   onChange={changeFilter(setFStatus)}   opts={MAIN_STATUSES}                          allLabel="All statuses" />
                   <Sel value={fPriority} onChange={changeFilter(setFPriority)} opts={['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']} allLabel="All priorities" />
-                  <button
-                    onClick={handleExport}
-                    disabled={total === 0 || exporting}
-                    title="Export complete ECO list"
-                    className="h-7 shrink-0 flex items-center gap-1.5 px-2.5 rounded-md text-[12px] font-medium bg-card text-foreground border border-border hover:bg-accent/50 transition-colors font-[inherit] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {exporting
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <Download className="w-3.5 h-3.5" />}
-                    Export
-                  </button>
+                  <div className="relative h-7 shrink-0">
+                    <select
+                      value=""
+                      onChange={e => {
+                        const v = e.target.value;
+                        e.target.value = '';
+                        if (v === 'summary' || v === 'detailed') void handleExport(v);
+                      }}
+                      disabled={total === 0 || exporting}
+                      title="Export the ECO list"
+                      aria-label="Export the ECO list"
+                      className="h-7 pl-7 pr-2.5 rounded-md text-[12px] font-medium bg-card text-foreground border border-border hover:bg-accent/50 transition-colors font-[inherit] outline-none cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="" disabled>Export</option>
+                      <option value="summary">Importable list (CSV)</option>
+                      <option value="detailed">Detailed report (CSV)</option>
+                    </select>
+                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2">
+                      {exporting
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Download className="w-3.5 h-3.5" />}
+                    </span>
+                  </div>
                   <button
                     onClick={() => setImportOpen(true)}
                     title="Import engineering changes with AI"
