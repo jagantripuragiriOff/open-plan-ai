@@ -58,7 +58,8 @@ describe('projectsService', () => {
       const projects = await projectsService.getByOrg(MOCK_ORG_ID);
 
       expect(apiClient.get).toHaveBeenCalledWith(
-        expect.stringContaining(`/organizations/${MOCK_ORG_ID}/projects`)
+        expect.stringContaining(`/organizations/${MOCK_ORG_ID}/projects`),
+        expect.objectContaining({ params: expect.objectContaining({ limit: 100 }) })
       );
       expect(projects).toHaveLength(1);
       expect(projects[0].id).toBe('proj-1');

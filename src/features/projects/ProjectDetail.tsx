@@ -591,7 +591,7 @@ export default function ProjectDetail() {
   // /modules/:moduleId, /milestones/:milestoneId, and /issues/:issueId routes
   // encode the section as a literal path segment rather than the generic :tab
   // param, so infer it from which item id is present.
-  const ALL_SECTIONS: ProjectSection[] = ['bom', 'requirements', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
+  const ALL_SECTIONS: ProjectSection[] = ['requirements', 'bom', 'eng-changes', 'tasks', 'modules', 'milestones', 'issues', 'gate-reviews', 'risk'];
   const section: ProjectSection = partId
     ? 'bom'
     : reqKey
@@ -608,7 +608,7 @@ export default function ProjectDetail() {
                 ? 'issues'
                 : ALL_SECTIONS.includes(tabParam as ProjectSection)
                   ? (tabParam as ProjectSection)
-                  : 'bom';
+                  : 'requirements';
 
   // Board column definitions are only rendered on their own tab (Tasks status
   // filter / Issues status filter) — gating avoids fetching them on every tab
@@ -1510,7 +1510,7 @@ export default function ProjectDetail() {
               underneath it (e.g. BOMDetailScreen's own header, which scrolls in
               its own inner container). */}
           {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
-          <div ref={setStickyHeaderEl} className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2.5 pb-2.5 border-b md:pt-0 md:mx-0 md:px-0 md:pb-2.5 will-change-transform">
+          <div ref={setStickyHeaderEl} className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2.5 pb-2.5 border-b border-border md:-mx-6 md:px-6 md:pt-0 md:pb-2.5 will-change-transform">
             {!partId && !reqKey && !isRequirementsEditorOpen && !ecoId && !isMobileModuleDetailOpen && (
               <div className="flex flex-row md:items-center justify-between gap-2 w-full pb-1">
                 {/* Left Side: Tabs */}
@@ -1883,7 +1883,7 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          <TabsContent value="tasks" className="mt-6">
+          <TabsContent value="tasks" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <TasksSection
               tasks={filteredTasks}
               allTasks={project.tasks || []}
@@ -1905,7 +1905,7 @@ export default function ProjectDetail() {
               onAddModule={canAddModulesAndMilestones ? handleAddModule : undefined}
             />
           </TabsContent>
-          <TabsContent value="modules" className={isMobileModuleDetailOpen ? '-mx-4' : 'mt-6'}>
+          <TabsContent value="modules" className={isMobileModuleDetailOpen ? '-mx-4' : 'mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col'}>
             <ModulesSection
               modules={modules}
               tasks={project.tasks || []}
@@ -1926,7 +1926,7 @@ export default function ProjectDetail() {
               onMobileDetailOpenChange={setIsMobileModuleDetailOpen}
             />
           </TabsContent>
-          <TabsContent value="milestones" className="mt-6">
+          <TabsContent value="milestones" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <MilestonesView
               milestones={project.milestones || []}
               tasks={project.tasks || []}
@@ -1945,7 +1945,7 @@ export default function ProjectDetail() {
               stickyOffset={stickyHeaderHeight}
             />
           </TabsContent>
-          <TabsContent value="issues" className="mt-6 bg-background">
+          <TabsContent value="issues" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col bg-background">
             <IssuesView
               issues={project.issues || []}
               projectCode={project.code}
@@ -2002,7 +2002,7 @@ export default function ProjectDetail() {
               onEcoCreated={(ecoId) => navigate(`/projects/${id}/eng-changes/${ecoId}`)}
             />
           </TabsContent>
-          <TabsContent value="eng-changes" className="mt-6 -mx-4 md:-mx-6 -mb-6 flex flex-col">
+          <TabsContent value="eng-changes" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <ECOView
               projectId={id!}
               projectName={project?.name}
@@ -2014,10 +2014,10 @@ export default function ProjectDetail() {
               }
             />
           </TabsContent>
-          <TabsContent value="gate-reviews" className="mt-6">
+          <TabsContent value="gate-reviews" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <GateView />
           </TabsContent>
-          <TabsContent value="risk" className="mt-6">
+          <TabsContent value="risk" className="mt-0 -mx-4 md:-mx-6 -mb-6 flex flex-col">
             <RiskView />
           </TabsContent>
         </Tabs>

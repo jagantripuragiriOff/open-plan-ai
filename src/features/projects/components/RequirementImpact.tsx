@@ -25,8 +25,8 @@ export default function RequirementImpact({ reqKey, projectId, onClose, onOpen, 
           including the Map view's fullscreen mode (zIndex 1000) and its
           floating toolbar/minimap (up to 210) — otherwise those controls
           render on top of this drawer's backdrop instead of behind it. */}
-      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.42)', zIndex:2000 }}/>
-      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:480, maxWidth:'94vw', zIndex:2001, background:'hsl(var(--card))', borderLeft:'1px solid hsl(var(--border))', boxShadow:'-12px 0 40px rgba(0,0,0,0.18)', display:'flex', flexDirection:'column' }}>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.42)', zIndex:1050 }}/>
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:480, maxWidth:'94vw', zIndex:1051, background:'hsl(var(--card))', borderLeft:'1px solid hsl(var(--border))', boxShadow:'-12px 0 40px rgba(0,0,0,0.18)', display:'flex', flexDirection:'column' }}>
 
         {/* header */}
         <div style={{ padding:'16px 20px', borderBottom:'1px solid hsl(var(--border))', display:'flex', alignItems:'flex-start', gap:12 }}>

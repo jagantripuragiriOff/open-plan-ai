@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft, PenLine, GitPullRequest, ChevronRight, Check, X, Plus,
   Unlink, PackageX, FlaskConical, AlertTriangle, Send, ChevronDown,
@@ -17,8 +19,9 @@ import {
   CoverageCell, OwnerAvatar, ScoreRing, softTint,
 } from './RequirementsShared';
 import {
-  useCreateRequirementLink, useDeleteRequirementLink,
-  type RequirementLinkType,
+  useCreateRequirementLink, useDeleteRequirementLink, useUpdateRequirement,
+  useRequirementDetail, useAddRequirementComment,
+  type RequirementLinkType, type ApiRequirementActivity,
 } from '@/hooks/useRequirements';
 import {
   useRequirementVerification, useCreateTestCase, useRecordExecution, useConfirmVerified,
@@ -63,79 +66,102 @@ export default function RequirementDetailScreen({ reqKey, projectId, orgId, onCl
   );
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'hsl(var(--background))' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 75px)', minHeight:0, width:'100%', maxWidth:'100%', background:'hsl(var(--background))', overflow:'hidden' }}>
       {/* Top bar */}
-      <div style={{ borderBottom:'1px solid hsl(var(--border))', background:'hsl(var(--card))', padding:'10px 16px 0', display:'flex', flexDirection:'column', gap:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-          <button onClick={onClose} style={{ width:30, height:30, borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--card))', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background .1s' }}
-            onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')} onMouseLeave={e=>(e.currentTarget.style.background='hsl(var(--card))')}>
-            <ArrowLeft size={16} color="hsl(var(--muted-foreground))"/>
+      <div style={{ background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))', padding: '6px 16px 0', display: 'flex', flexDirection: 'column', gap: 0, width:'100%', minWidth:0, overflow:'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, minWidth:0 }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 4,
+              borderRadius: 6,
+              flexShrink: 0,
+              transition: 'background .1s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--muted))')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            title="Back"
+          >
+            <ArrowLeft size={18} color="hsl(var(--muted-foreground))" />
           </button>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-              <ReqKeyTag reqKey={r.key}/>
-              <TypePill type={r.type}/>
-              <PriorityPill priority={r.priority}/>
-              {r.hasGap && <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 8px', borderRadius:9999, fontSize:10.5, fontWeight:600, background:softTint('#D97706',0.12), color:'#D97706', border:`1px solid ${softTint('#D97706',0.28)}` }}><AlertTriangle size={11} color="#D97706"/>Has gaps</span>}
-            </div>
-            <div style={{ fontSize:15, fontWeight:700, color:'hsl(var(--foreground))', marginTop:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', overflow: 'hidden' }}>
+            <h1 style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flexShrink: 1 }}>
+              {r.title}
+            </h1>
+            <ReqKeyTag reqKey={r.key} />
+            <TypePill type={r.type} />
+            <PriorityPill priority={r.priority} />
+            {r.hasGap && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, fontSize: 10.5, fontWeight: 600, background: softTint('#D97706', 0.12), color: '#D97706', border: `1px solid ${softTint('#D97706', 0.28)}` }}>
+                <AlertTriangle size={11} color="#D97706" />
+                Has gaps
+              </span>
+            )}
           </div>
-          <div style={{ display:'flex', gap:6 }}>
-            <TopBtn icon={GitPullRequest} label="Impact" tint="#D97706" onClick={() => onImpact(r.key)}/>
-            <TopBtn icon={PenLine} label="Edit" tint="hsl(var(--foreground))" onClick={() => onEdit(r.key)} primary/>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <TopBtn icon={GitPullRequest} label="Impact" tint="#D97706" onClick={() => onImpact(r.key)} />
+            <TopBtn icon={PenLine} label="Edit" tint="hsl(var(--foreground))" onClick={() => onEdit(r.key)} primary />
           </div>
         </div>
 
         {/* Tabs (left) + Lifecycle stepper (right) in one row */}
-        <div style={{ display:'flex', alignItems:'center', gap:0, marginTop:4 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4, minWidth:0, overflowX:'hidden' }}>
 
           {/* Tabs */}
-          {([
-            ['overview', 'Overview',     BookOpen,       null           ] as const,
-            ['trace',    'Traceability', GitBranch,      r.links.length ] as const,
-            ['verify',   'Verification', ClipboardCheck, null           ] as const,
-          ]).map(([k, label, Ic, count]) => {
-            const active = tab === k;
-            return (
-              <button key={k} onClick={() => setTab(k as typeof tab)}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 14px', border:'none',
-                  borderBottom: active ? '2px solid #3B82F6' : '2px solid transparent',
-                  background:'transparent', cursor:'pointer', fontFamily:'inherit',
-                  fontSize:13, fontWeight: active ? 600 : 400,
-                  color: active ? '#3B82F6' : 'hsl(var(--muted-foreground))',
-                  transition:'color .1s', whiteSpace:'nowrap' }}>
-                <Ic size={13} color={active ? '#3B82F6' : 'hsl(var(--muted-foreground))'}/>
-                {label}
-                {count != null && count > 0 && (
-                  <span style={{ fontSize:11, fontWeight:600, color:'hsl(var(--muted-foreground))', background:'hsl(var(--muted))', borderRadius:9999, padding:'1px 6px', marginLeft:2 }}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          <div style={{ display:'flex', alignItems:'center', gap:0, flexShrink:0 }}>
+            {([
+              ['overview', 'Overview',     BookOpen,       null           ] as const,
+              ['trace',    'Traceability', GitBranch,      r.links.length ] as const,
+              ['verify',   'Verification', ClipboardCheck, null           ] as const,
+            ]).map(([k, label, Ic, count]) => {
+              const active = tab === k;
+              return (
+                <button key={k} onClick={() => setTab(k as typeof tab)}
+                  style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', border:'none',
+                    borderBottom: active ? '2px solid #3B82F6' : '2px solid transparent',
+                    background:'transparent', cursor:'pointer', fontFamily:'inherit',
+                    fontSize:13, fontWeight: active ? 600 : 400,
+                    color: active ? '#3B82F6' : 'hsl(var(--muted-foreground))',
+                    transition:'color .1s', whiteSpace:'nowrap', marginBottom: -1, position: 'relative', zIndex: 1 }}>
+                  <Ic size={13} color={active ? '#3B82F6' : 'hsl(var(--muted-foreground))'}/>
+                  {label}
+                  {count != null && count > 0 && (
+                    <span style={{ fontSize:11, fontWeight:600, color:'hsl(var(--muted-foreground))', background:'hsl(var(--muted))', borderRadius:9999, padding:'1px 6px', marginLeft:2 }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-          <div style={{ flex:1 }}/>
+          <div style={{ flex:1, minWidth:8 }}/>
 
           {/* Lifecycle stepper */}
-          <LifecycleStepper status={r.status}/>
+          <LifecycleStepper status={r.status} projectId={projectId} requirementId={r._id} onGoToVerify={() => setTab('verify')}/>
 
           {/* Activity toggle */}
           <button onClick={() => setActivityOpen(p=>!p)}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', border:'none', borderBottom:'2px solid transparent', background:'transparent', cursor:'pointer', color:'hsl(var(--muted-foreground))', fontFamily:'inherit', fontSize:12.5, marginLeft:8 }}>
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 10px', border:'none', borderBottom:'2px solid transparent', background:'transparent', cursor:'pointer', color:'hsl(var(--muted-foreground))', fontFamily:'inherit', fontSize:12.5, flexShrink:0 }}>
             <MessageSquare size={13}/>{activityOpen ? 'Hide' : 'Activity'}
           </button>
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
-        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+      <div style={{ flex:1, display:'flex', minHeight:0, minWidth:0, overflow:'hidden' }}>
+        <div style={{ flex:1, minHeight:0, minWidth:0, overflowY:'auto', padding:'20px 24px' }}>
           {tab === 'overview' && <OverviewTab r={r} ai={ai} criteria={criteria} onNavigate={onNavigate}/>}
           {tab === 'trace'    && <TraceTab    r={r} projectId={projectId} onNavigate={onNavigate}/>}
           {tab === 'verify'   && <VerifyTab   r={r} projectId={projectId} orgId={orgId} onEcoCreated={onEcoCreated}/>}
         </div>
-        {activityOpen && <ActivityPanel reqKey={r.key}/>}
+        {activityOpen && <ActivityPanel requirementId={r._id}/>}
       </div>
     </div>
   );
@@ -150,10 +176,31 @@ function TopBtn({ icon:Ic, label, tint, onClick, primary }: { icon:React.Element
 }
 
 // ── Lifecycle stepper ──────────────────────────────────────────────────────────
-function LifecycleStepper({ status }: { status: ReqStatus }) {
+// Draft → Reviewed → Approved is a plain manual review workflow with no
+// backend gate — clicking the immediate next step advances it directly via a
+// real PATCH. Verified is different: it's only ever supposed to be set by the
+// Test & Verification sign-off (single-owner confirm / pipeline — see
+// test-verification.service.ts's assertReadyForSignoff, which requires every
+// test case to have a passing result). Wiring this step to a raw status PATCH
+// would let a requirement claim "verified" with zero tests run, undermining
+// the whole gate that feature was built for — so clicking it just opens the
+// Verification tab instead. Validated has no computed gate of its own; it
+// only becomes clickable once the requirement is actually verified.
+function LifecycleStepper({ status, projectId, requirementId, onGoToVerify }:
+  { status: ReqStatus; projectId: string; requirementId?: string; onGoToVerify: () => void }) {
   const cur = REQ_STATUS[status].step;
+  const updateRequirement = useUpdateRequirement(projectId);
+
+  const advanceTo = (target: ReqStatus) => {
+    if (!requirementId || updateRequirement.isPending) return;
+    updateRequirement.mutate(
+      { requirementId, payload: { status: target } },
+      { onError: () => toast.error('Failed to update status') },
+    );
+  };
+
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:0, padding:'0 8px', flexShrink:0 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:0, padding:'0 4px', flexShrink:1, minWidth:0, overflowX:'auto' }}>
       {REQ_STATUS_FLOW.map((s, i) => {
         const m = REQ_STATUS[s];
         const done = cur > i;
@@ -162,24 +209,38 @@ function LifecycleStepper({ status }: { status: ReqStatus }) {
         const col = future ? 'hsl(var(--border))' : m.tint;
         const labelCol = future ? 'hsl(var(--muted-foreground))' : m.tint;
         const lineCol = done ? m.tint : 'hsl(var(--border))';
+
+        const isImmediateNext = i === cur + 1;
+        const clickable =
+          (isImmediateNext && (s === 'reviewed' || s === 'approved' || s === 'validated')) || s === 'verified';
+        const handleClick = !clickable ? undefined : () => (s === 'verified' ? onGoToVerify() : advanceTo(s));
+
         return (
           <React.Fragment key={s}>
             {i > 0 && (
-              <div style={{ width:26, height:1.5, background:lineCol, flexShrink:0 }}/>
+              <div style={{ width:16, height:1.5, background:lineCol, flexShrink:0 }}/>
             )}
-            <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+            <div
+              onClick={handleClick}
+              title={s === 'verified' ? 'Go to Verification tab' : clickable ? `Mark as ${m.label}` : undefined}
+              style={{
+                display:'flex', alignItems:'center', gap:4, flexShrink:0,
+                cursor: handleClick ? 'pointer' : 'default',
+                opacity: updateRequirement.isPending ? 0.6 : 1,
+              }}
+            >
               {/* Circle */}
               <div style={{
-                width:20, height:20, borderRadius:9999, flexShrink:0,
+                width:18, height:18, borderRadius:9999, flexShrink:0,
                 background: active ? col : 'transparent',
                 border: `2px solid ${col}`,
                 display:'flex', alignItems:'center', justifyContent:'center',
               }}>
-                {(done || active) && <Check size={10} color={active ? '#fff' : col}/>}
-                {future && <span style={{ width:5, height:5, borderRadius:9999, background:'hsl(var(--muted-foreground))', opacity:0.4 }}/>}
+                {(done || active) && <Check size={9} color={active ? '#fff' : col}/>}
+                {future && <span style={{ width:4, height:4, borderRadius:9999, background:'hsl(var(--muted-foreground))', opacity:0.4 }}/>}
               </div>
               {/* Label */}
-              <span style={{ fontSize:11.5, fontWeight: active ? 700 : 400, color:labelCol, whiteSpace:'nowrap' }}>
+              <span style={{ fontSize:11, fontWeight: active ? 700 : 400, color:labelCol, whiteSpace:'nowrap' }}>
                 {m.label}
               </span>
             </div>
@@ -197,96 +258,88 @@ function OverviewTab({ r, ai, criteria, onNavigate }:
   const typeM = REQ_TYPE[r.type];
 
   return (
-    <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
-      {/* left column */}
-      <div style={{ flex:'2 1 500px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
-        {/* gap banner */}
-        {r.hasGap && (
-          <div style={{ padding:'10px 14px', borderRadius:10, border:`1px solid ${softTint('#D97706',0.35)}`, background:softTint('#D97706',0.06), display:'flex', alignItems:'flex-start', gap:10 }}>
-            <AlertTriangle size={15} color="#D97706" style={{ flexShrink:0, marginTop:1 }}/>
-            <div>
-              <div style={{ fontSize:13, fontWeight:600, color:'#D97706', marginBottom:4 }}>Requirement gaps</div>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                {r.coverage.orphan        && <GapBadge type="orphan"/>}
-                {r.coverage.untested      && <GapBadge type="untested"/>}
-                {r.coverage.unimplemented && <GapBadge type="unimplemented"/>}
-                {r.coverage.suspect       && <GapBadge type="suspect"/>}
+    <div style={{ display:'flex', flexDirection:'column', gap:14, width:'100%' }}>
+      {/* gap banner */}
+      {r.hasGap && (
+        <div style={{ padding:'10px 14px', borderRadius:10, border:`1px solid ${softTint('#D97706',0.35)}`, background:softTint('#D97706',0.06), display:'flex', alignItems:'flex-start', gap:10 }}>
+          <AlertTriangle size={15} color="#D97706" style={{ flexShrink:0, marginTop:1 }}/>
+          <div>
+            <div style={{ fontSize:13, fontWeight:600, color:'#D97706', marginBottom:4 }}>Requirement gaps</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {r.coverage.orphan        && <GapBadge type="orphan"/>}
+              {r.coverage.untested      && <GapBadge type="untested"/>}
+              {r.coverage.unimplemented && <GapBadge type="unimplemented"/>}
+              {r.coverage.suspect       && <GapBadge type="suspect"/>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement statement */}
+      <DetailCard title="Requirement statement" icon={BookOpen}>
+        <p style={{ fontSize:14, color:'hsl(var(--foreground))', lineHeight:1.65, margin:0 }}>
+          {highlightEARS(r.statement)}
+        </p>
+        {r.rationale && (
+          <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid hsl(var(--border))', fontSize:12.5, color:'hsl(var(--muted-foreground))', lineHeight:1.55 }}>
+            <span style={{ fontWeight:600, color:'hsl(var(--foreground))' }}>Rationale: </span>{r.rationale}
+          </div>
+        )}
+        {r.target && (
+          <div style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:8, background:softTint('#3B82F6',0.08), border:`1px solid ${softTint('#3B82F6',0.25)}` }}>
+            <span style={{ fontSize:11.5, color:'hsl(var(--muted-foreground))' }}>Target:</span>
+            <span style={{ fontSize:13.5, fontWeight:700, color:'#3B82F6' }}>{r.target.value}</span>
+            {r.target.tolerance && <span style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>{r.target.tolerance}</span>}
+            <span style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{r.target.unit}</span>
+          </div>
+        )}
+      </DetailCard>
+
+      {/* Attributes grid */}
+      <DetailCard title="Attributes" icon={Activity}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:12 }}>
+          <MetaField label="Type"><TypePill type={r.type}/></MetaField>
+          <MetaField label="Category"><CatPill category={r.category}/></MetaField>
+          <MetaField label="Priority"><PriorityPill priority={r.priority}/></MetaField>
+          <MetaField label="Status"><StatusBadge status={r.status}/></MetaField>
+          <MetaField label="V-Method"><span style={{ fontSize:12.5 }}>{r.vmethod}</span></MetaField>
+          <MetaField label="V-Status"><VStatusBadge vstatus={r.vstatus}/></MetaField>
+          <MetaField label="Owner"><div style={{ display:'flex', alignItems:'center', gap:6 }}><OwnerAvatar ownerId={r.owner} size={22}/><span style={{ fontSize:12.5 }}>{ownerOf(r.owner).name}</span></div></MetaField>
+          <MetaField label="Version"><span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.version}</span></MetaField>
+          {r.standard && <MetaField label="Standard"><span style={{ fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:'#3B82F6' }}>{r.standard}</span></MetaField>}
+          {r.alloc?.length > 0 && <MetaField label="Allocated to"><span style={{ fontSize:12 }}>{r.alloc.join(', ')}</span></MetaField>}
+        </div>
+      </DetailCard>
+
+      {/* Acceptance criteria */}
+      <DetailCard title="Acceptance criteria" icon={ClipboardCheck} accent="#16A34A">
+        {criteria.map((c, i) => (
+          <div key={i} style={{ padding:'10px 12px', borderRadius:9, border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))', marginBottom:i < criteria.length-1 ? 8 : 0 }}>
+            <CritLine color="#0EA5E9" label="GIVEN" text={c.given}/>
+            <CritLine color="#9333EA" label="WHEN"  text={c.when}/>
+            <CritLine color="#16A34A" label="THEN"  text={c.then}/>
+          </div>
+        ))}
+      </DetailCard>
+
+      {/* Decomposition tree */}
+      {r.childKeys.length > 0 && (
+        <DetailCard title={`Child requirements (${r.childKeys.length})`} icon={GitBranch}>
+          {r.childKeys.map(k => {
+            const c = BY_KEY[k]; if (!c) return null;
+            return (
+              <div key={k} onClick={() => onNavigate(k)} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, border:'1px solid hsl(var(--border))', marginBottom:6, cursor:'pointer', transition:'background .1s' }}
+                onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')}
+                onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                <ReqKeyTag reqKey={c.key}/>
+                <span style={{ flex:1, fontSize:13, color:'hsl(var(--foreground))', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.title}</span>
+                <StatusBadge status={c.status}/>
+                <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Requirement statement */}
-        <DetailCard title="Requirement statement" icon={BookOpen}>
-          <p style={{ fontSize:14, color:'hsl(var(--foreground))', lineHeight:1.65, margin:0 }}>
-            {highlightEARS(r.statement)}
-          </p>
-          {r.rationale && (
-            <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid hsl(var(--border))', fontSize:12.5, color:'hsl(var(--muted-foreground))', lineHeight:1.55 }}>
-              <span style={{ fontWeight:600, color:'hsl(var(--foreground))' }}>Rationale: </span>{r.rationale}
-            </div>
-          )}
-          {r.target && (
-            <div style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:8, background:softTint('#3B82F6',0.08), border:`1px solid ${softTint('#3B82F6',0.25)}` }}>
-              <span style={{ fontSize:11.5, color:'hsl(var(--muted-foreground))' }}>Target:</span>
-              <span style={{ fontSize:13.5, fontWeight:700, color:'#3B82F6' }}>{r.target.value}</span>
-              {r.target.tolerance && <span style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>{r.target.tolerance}</span>}
-              <span style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{r.target.unit}</span>
-            </div>
-          )}
+            );
+          })}
         </DetailCard>
-
-        {/* Attributes grid */}
-        <DetailCard title="Attributes" icon={Activity}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:12 }}>
-            <MetaField label="Type"><TypePill type={r.type}/></MetaField>
-            <MetaField label="Category"><CatPill category={r.category}/></MetaField>
-            <MetaField label="Priority"><PriorityPill priority={r.priority}/></MetaField>
-            <MetaField label="Status"><StatusBadge status={r.status}/></MetaField>
-            <MetaField label="V-Method"><span style={{ fontSize:12.5 }}>{r.vmethod}</span></MetaField>
-            <MetaField label="V-Status"><VStatusBadge vstatus={r.vstatus}/></MetaField>
-            <MetaField label="Owner"><div style={{ display:'flex', alignItems:'center', gap:6 }}><OwnerAvatar ownerId={r.owner} size={22}/><span style={{ fontSize:12.5 }}>{ownerOf(r.owner).name}</span></div></MetaField>
-            <MetaField label="Version"><span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12 }}>{r.version}</span></MetaField>
-            {r.standard && <MetaField label="Standard"><span style={{ fontSize:12, fontFamily:"'JetBrains Mono',monospace", color:'#3B82F6' }}>{r.standard}</span></MetaField>}
-            {r.alloc?.length > 0 && <MetaField label="Allocated to"><span style={{ fontSize:12 }}>{r.alloc.join(', ')}</span></MetaField>}
-          </div>
-        </DetailCard>
-
-        {/* Acceptance criteria */}
-        <DetailCard title="Acceptance criteria" icon={ClipboardCheck} accent="#16A34A">
-          {criteria.map((c, i) => (
-            <div key={i} style={{ padding:'10px 12px', borderRadius:9, border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))', marginBottom:i < criteria.length-1 ? 8 : 0 }}>
-              <CritLine color="#0EA5E9" label="GIVEN" text={c.given}/>
-              <CritLine color="#9333EA" label="WHEN"  text={c.when}/>
-              <CritLine color="#16A34A" label="THEN"  text={c.then}/>
-            </div>
-          ))}
-        </DetailCard>
-
-        {/* Decomposition tree */}
-        {r.childKeys.length > 0 && (
-          <DetailCard title={`Child requirements (${r.childKeys.length})`} icon={GitBranch}>
-            {r.childKeys.map(k => {
-              const c = BY_KEY[k]; if (!c) return null;
-              return (
-                <div key={k} onClick={() => onNavigate(k)} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, border:'1px solid hsl(var(--border))', marginBottom:6, cursor:'pointer', transition:'background .1s' }}
-                  onMouseEnter={e=>(e.currentTarget.style.background='hsl(var(--muted))')}
-                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                  <ReqKeyTag reqKey={c.key}/>
-                  <span style={{ flex:1, fontSize:13, color:'hsl(var(--foreground))', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.title}</span>
-                  <StatusBadge status={c.status}/>
-                  <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>
-                </div>
-              );
-            })}
-          </DetailCard>
-        )}
-      </div>
-
-      {/* right column — AI quality panel */}
-      <div style={{ flex:'1 1 260px', minWidth:0, display:'flex', flexDirection:'column', gap:14 }}>
-        <AIQualityPanel ai={ai} req={r}/>
-      </div>
+      )}
     </div>
   );
 }
@@ -345,9 +398,9 @@ function TraceTab({ r, projectId, onNavigate }: { r: Requirement; projectId: str
             });
           }} />
       )}
-      <LinkGroup title="Upstream" icon={ArrowUpRight} links={upstream} onNavigate={onNavigate} onDelete={handleDelete} tint="#9333EA"/>
-      <LinkGroup title="Downstream" icon={ArrowDownRight} links={downstream} onNavigate={onNavigate} onDelete={handleDelete} tint="#2563EB"/>
-      <LinkGroup title="Peer" icon={ArrowRightIcon} links={peer} onNavigate={onNavigate} onDelete={handleDelete} tint="#64748B"/>
+      <LinkGroup title="Upstream" icon={ArrowUpRight} links={upstream} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#9333EA"/>
+      <LinkGroup title="Downstream" icon={ArrowDownRight} links={downstream} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#2563EB"/>
+      <LinkGroup title="Peer" icon={ArrowRightIcon} links={peer} projectId={projectId} onNavigate={onNavigate} onDelete={handleDelete} tint="#64748B"/>
     </div>
   );
 }
@@ -383,7 +436,8 @@ function AddLinkForm({ r, onClose, onCreate, pending }: { r: Requirement; onClos
   );
 }
 
-function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { title:string; icon:React.ElementType; links:Requirement['links']; onNavigate:(k:string)=>void; onDelete:(linkId:string)=>void; tint:string }) {
+function LinkGroup({ title, icon:Ic, links, projectId, onNavigate, onDelete, tint }: { title:string; icon:React.ElementType; links:Requirement['links']; projectId?: string; onNavigate:(k:string)=>void; onDelete:(linkId:string)=>void; tint:string }) {
+  const navigate = useNavigate();
   if (!links.length) return null;
   return (
     <div>
@@ -398,11 +452,25 @@ function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { titl
         {links.map((l,i) => {
           const target = BY_KEY[l.target];
           const isSuspect = l.status === 'suspect';
+          const isPart = l.kind === 'part';
+          const isEco = l.kind === 'eco';
+          const isClickable = (target && !l.external) || isPart || isEco;
+
+          const handleClick = () => {
+            if (isPart && projectId) {
+              navigate(`/projects/${projectId}/bom/${l.target}`);
+            } else if (isEco && projectId) {
+              navigate(`/projects/${projectId}/eng-changes/${l.target}`);
+            } else if (target && !l.external) {
+              onNavigate(l.target);
+            }
+          };
+
           return (
-            <div key={i} onClick={() => { if (target && !l.external) onNavigate(l.target); }}
+            <div key={i} onClick={handleClick}
               title={l.kind==='part' && l.rationale ? l.rationale : undefined}
-              style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, border:`1px solid ${isSuspect ? softTint('#DC2626',0.35) : 'hsl(var(--border))'}`, background: isSuspect ? softTint('#DC2626',0.04) : 'hsl(var(--card))', cursor: target && !l.external ? 'pointer' : 'default', transition:'background .1s' }}
-              onMouseEnter={e=>{ if(target&&!l.external) e.currentTarget.style.background='hsl(var(--muted))'; }}
+              style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, border:`1px solid ${isSuspect ? softTint('#DC2626',0.35) : 'hsl(var(--border))'}`, background: isSuspect ? softTint('#DC2626',0.04) : 'hsl(var(--card))', cursor: isClickable ? 'pointer' : 'default', transition:'background .1s' }}
+              onMouseEnter={e=>{ if(isClickable) e.currentTarget.style.background='hsl(var(--muted))'; }}
               onMouseLeave={e=>{ e.currentTarget.style.background=isSuspect?softTint('#DC2626',0.04):'hsl(var(--card))'; }}>
               <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11.5, fontWeight:600, color: l.kind==='part'?'#D97706':l.kind==='test'?'#9333EA':l.kind==='eco'?'#DC2626':'#3B82F6', width:90, flexShrink:0 }}>{l.target}</span>
               <span style={{ color:'hsl(var(--muted-foreground))', flex:'0 0 100px', fontSize:11, fontWeight:500 }}>{REQ_LINKTYPE[l.type]?.label ?? l.type}</span>
@@ -427,7 +495,7 @@ function LinkGroup({ title, icon:Ic, links, onNavigate, onDelete, tint }: { titl
                   <X size={12} color="hsl(var(--muted-foreground))"/>
                 </button>
               )}
-              {target && !l.external && <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>}
+              {isClickable && <ChevronRight size={13} color="hsl(var(--muted-foreground))"/>}
             </div>
           );
         })}
@@ -973,36 +1041,82 @@ function AIQualityPanel({ ai, req }: { ai: ReturnType<typeof analyzeQuality>; re
 }
 
 // ── Activity panel ─────────────────────────────────────────────────────────────
-const MOCK_ACTIVITY = [
-  { actor:'SA', color:'#7C3AED', action:'approved this requirement', ago:'2h ago' },
-  { actor:'ML', color:'#2563EB', action:'changed priority to High', ago:'1d ago' },
-  { actor:'KA', color:'#059669', action:'linked test case TC-SYS-001', ago:'2d ago' },
-  { actor:'JP', color:'#D97706', action:'added rationale', ago:'3d ago' },
-  { actor:'SA', color:'#7C3AED', action:'created this requirement', ago:'5d ago' },
-];
+// Backed by the real `activities` table (requirements.service.ts embeds it on
+// GET /requirements/:id) — field-level edits, status changes, test-case links,
+// verification sign-off, BOM allocation, and posted comments all land in this
+// one feed server-side, so there's nothing to merge client-side beyond mapping
+// each row to an actor avatar + relative timestamp.
 
-function ActivityPanel({ reqKey }: { reqKey:string }) {
+const ACTIVITY_ACTOR_COLORS = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#DB2777', '#65A30D'];
+function colorForActor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ACTIVITY_ACTOR_COLORS[h % ACTIVITY_ACTOR_COLORS.length];
+}
+function initialsOf(name: string | null): string {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function ActivityPanel({ requirementId }: { requirementId?: string }) {
   const [comment, setComment] = useState('');
+  const { data: detail, isLoading } = useRequirementDetail(requirementId);
+  const addComment = useAddRequirementComment(requirementId ?? '');
+  const activities: ApiRequirementActivity[] = detail?.activities ?? [];
+
+  const handleSend = () => {
+    const content = comment.trim();
+    if (!content || !requirementId) return;
+    addComment.mutate(content, { onSuccess: () => setComment('') });
+  };
 
   return (
-    <div style={{ width:300, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column' }}>
-      <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))' }}>Activity</div>
-      <div style={{ flex:1, overflowY:'auto', padding:'12px 14px' }}>
-        {MOCK_ACTIVITY.map((a,i) => (
-          <div key={i} style={{ display:'flex', gap:9, marginBottom:14 }}>
-            <span style={{ width:26, height:26, borderRadius:9999, flexShrink:0, background:softTint(a.color,0.18), color:a.color, fontSize:9.5, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', border:`1px solid ${softTint(a.color,0.3)}` }}>{a.actor}</span>
-            <div>
-              <span style={{ fontSize:12.5, color:'hsl(var(--foreground))' }}>{a.action}</span>
-              <div style={{ fontSize:11, color:'hsl(var(--muted-foreground))', marginTop:2 }}>{a.ago}</div>
+    <div style={{ width:350, flexShrink:0, borderLeft:'1px solid hsl(var(--border))', background:'hsl(var(--card))', display:'flex', flexDirection:'column', height:'100%', minHeight:0 }}>
+      <div style={{ padding:'12px 14px', borderBottom:'1px solid hsl(var(--border))', fontSize:13.5, fontWeight:600, color:'hsl(var(--foreground))', flexShrink:0 }}>Activity</div>
+      <div style={{ flex:1, minHeight:0, overflowY:'auto', padding:'12px 14px' }}>
+        {isLoading && (
+          <div style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>Loading…</div>
+        )}
+        {!isLoading && activities.length === 0 && (
+          <div style={{ fontSize:12, color:'hsl(var(--muted-foreground))' }}>No activity yet.</div>
+        )}
+        {activities.map((a) => {
+          const color = a.userId ? colorForActor(a.userId) : '#888';
+          const initials = initialsOf(a.userName);
+          return (
+            <div key={a.id} style={{ display:'flex', gap:9, marginBottom:14 }}>
+              <span style={{ width:26, height:26, borderRadius:9999, flexShrink:0, background:softTint(color,0.18), color, fontSize:9.5, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', border:`1px solid ${softTint(color,0.3)}` }}>{initials}</span>
+              <div style={{ minWidth:0 }}>
+                <span style={{ fontSize:12.5, color:'hsl(var(--foreground))' }}>
+                  <strong style={{ fontWeight:600 }}>{a.userName ?? 'Someone'}</strong> {a.title}
+                </span>
+                {a.type === 'requirement_commented' && a.description && (
+                  <div style={{ fontSize:12, color:'hsl(var(--foreground))', background:'hsl(var(--muted))', borderRadius:7, padding:'6px 9px', marginTop:5, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                    {a.description}
+                  </div>
+                )}
+                <div style={{ fontSize:11, color:'hsl(var(--muted-foreground))', marginTop:2 }}>
+                  {formatDistanceToNow(new Date(a.createdAt), { addSuffix:true })}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))' }}>
-        <div style={{ display:'flex', gap:7 }}>
+      <div style={{ padding:'10px 12px', borderTop:'1px solid hsl(var(--border))', flexShrink:0, background:'hsl(var(--card))' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, background:'hsl(var(--background))', border:'1px solid hsl(var(--border))', borderRadius:8, padding:'4px 6px 4px 10px' }}>
           <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Leave a comment…" rows={2}
-            style={{ flex:1, resize:'none', borderRadius:7, border:'1px solid hsl(var(--border))', background:'hsl(var(--background))', color:'hsl(var(--foreground))', padding:'7px 9px', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.45 }}/>
-          <button onClick={() => setComment('')} style={{ alignSelf:'flex-end', width:30, height:30, borderRadius:7, border:'none', background:'hsl(var(--foreground))', color:'hsl(var(--background))', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            disabled={addComment.isPending || !requirementId}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            style={{ flex:1, resize:'none', border:'none', background:'transparent', color:'hsl(var(--foreground))', padding:'4px 0', fontSize:12.5, fontFamily:'inherit', outline:'none', lineHeight:1.4 }}/>
+          <button onClick={handleSend} disabled={!comment.trim() || addComment.isPending || !requirementId}
+            title="Send comment"
+            style={{ alignSelf:'flex-end', marginBottom:2, width:28, height:28, borderRadius:6, border:'none', background: comment.trim() && !addComment.isPending ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.2)', color: comment.trim() && !addComment.isPending ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))', cursor: !comment.trim() || addComment.isPending ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s ease' }}>
             <Send size={13}/>
           </button>
         </div>

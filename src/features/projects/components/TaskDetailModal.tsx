@@ -298,6 +298,7 @@ export const TaskDetailModal = ({
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingFileUrls, setPendingFileUrls] = useState<string[]>([]);
+  const [pendingDeletedAttachmentIds, setPendingDeletedAttachmentIds] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
@@ -561,7 +562,8 @@ export const TaskDetailModal = ({
         };
       });
       setEditedTask(prev => {
-        const updated = { ...prev, attachments: mapped };
+        const filteredMapped = mapped.filter(r => !pendingDeletedAttachmentIds.has(r.id));
+        const updated = { ...prev, attachments: filteredMapped };
         setInitialTaskSnapshot(current => current === '' ? current : serializeTaskForDirtyCheck(updated));
         return updated;
       });
@@ -614,6 +616,7 @@ export const TaskDetailModal = ({
     } : editedTask);
     setEditedTask(baseTask);
     setPendingFiles([]);
+    setPendingDeletedAttachmentIds(new Set());
     setIsSaving(false);
     setIsAdvancedDescription(!!(baseTask.descriptionBlocks && baseTask.descriptionBlocks.length > 0));
     setInitialTaskSnapshot(serializeTaskForDirtyCheck(baseTask));
@@ -853,42 +856,15 @@ export const TaskDetailModal = ({
 
   const processFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    if (mode === 'create') {
-      setPendingFiles(prev => [...prev, ...Array.from(files)]);
-      return;
-    }
-    setIsUploading(true);
-    try {
-      const results = await Promise.all(
-        Array.from(files).map(file =>
-          attachmentsService.upload({
-            entityId: editedTask.id,
-            entityType: 'task',
-            projectId: editedTask.projectId ?? projectId,
-            file,
-          })
-        )
-      );
-      handleFieldChange('attachments', [
-        ...attachments,
-        ...results.map(r => ({
-          id: r.id,
-          filename: r.fileName ?? r.file_name ?? 'file',
-          url: r.fileUrl ?? r.url ?? '',
-          fileSize: r.fileSize ?? r.file_size ?? 0,
-          fileType: r.mimeType ?? r.mime_type ?? '',
-          uploadedAt: r.createdAt ?? r.uploaded_at ?? new Date().toISOString(),
-          uploadedBy: profile
-            ? { id: profile.id, name: profile.name, email: profile.email, role: '', initials: profile.initials ?? '' }
-            : { id: '', name: 'You', email: '', role: '', initials: '' },
-        })),
-      ]);
-      toast.success(`${results.length} file(s) uploaded`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to upload file');
-    } finally {
-      setIsUploading(false);
-    }
+    const newFiles = dedupeIncomingFiles(
+      Array.from(files),
+      [
+        ...attachments.map(a => ({ name: a.filename, size: a.fileSize })),
+        ...pendingFiles.map(f => ({ name: f.name, size: f.size })),
+      ]
+    );
+    if (newFiles.length === 0) return;
+    setPendingFiles(prev => [...prev, ...newFiles]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -926,13 +902,9 @@ export const TaskDetailModal = ({
     return () => document.removeEventListener('paste', handlePaste);
   });
 
-  const handleRemoveAttachment = async (attachmentId: string) => {
-    try {
-      await attachmentsService.delete(attachmentId);
-      handleFieldChange('attachments', attachments.filter((a: any) => a.id !== attachmentId));
-    } catch {
-      handleFieldChange('attachments', attachments.filter((a: any) => a.id !== attachmentId));
-    }
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setPendingDeletedAttachmentIds(prev => new Set(prev).add(attachmentId));
+    handleFieldChange('attachments', attachments.filter((a: any) => a.id !== attachmentId));
   };
 
   const videoLinks: VideoLink[] = editedTask.videoLinks || [];
@@ -1008,7 +980,12 @@ export const TaskDetailModal = ({
   const hasPendingCommentChanges =
     pendingNewCommentIds.size > 0 || pendingEditedComments.size > 0 || pendingDeletedCommentIds.size > 0;
   const isFormDirty =
-    isTaskDirty || hasBlockingToChanges || hasBlockedByChanges || pendingFiles.length > 0 || hasPendingCommentChanges;
+    isTaskDirty ||
+    hasBlockingToChanges ||
+    hasBlockedByChanges ||
+    pendingFiles.length > 0 ||
+    hasPendingCommentChanges ||
+    pendingDeletedAttachmentIds.size > 0;
   const canSubmitTask = Boolean(
     editedTask.title &&
     editedTask.startDate &&
@@ -1140,6 +1117,32 @@ export const TaskDetailModal = ({
 
       // Commit staged comment changes (add/edit/delete) now that Update was confirmed
       if (mode !== 'create' && editedTask.id) {
+        for (const id of pendingDeletedAttachmentIds) {
+          try {
+            await attachmentsService.delete(id);
+          } catch (error) {
+            logger.error('Failed to delete attachment:', error);
+          }
+        }
+        setPendingDeletedAttachmentIds(new Set());
+
+        if (pendingFiles.length > 0) {
+          for (const file of pendingFiles) {
+            try {
+              await attachmentsService.upload({
+                entityId: editedTask.id,
+                entityType: 'task',
+                projectId: editedTask.projectId ?? projectId,
+                file,
+              });
+            } catch (error) {
+              logger.error('Failed to upload attachment:', error);
+              toast.error('Failed to upload some attachments');
+            }
+          }
+          setPendingFiles([]);
+        }
+
         for (const id of pendingDeletedCommentIds) {
           try {
             await commentsService.delete(id);
@@ -1548,7 +1551,7 @@ export const TaskDetailModal = ({
                         )}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="p-0 w-[260px]" align="start">
+                    <PopoverContent className="p-0 w-[260px] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                       <Command>
                         <CommandInput placeholder="Search members..." />
 
@@ -1744,7 +1747,7 @@ export const TaskDetailModal = ({
                               : 'Pick a date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align={isMobile ? "center" : "start"}>
+                        <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align={isMobile ? "center" : "start"}>
                           <Calendar
                             mode="single"
                             selected={editedTask.startDate ? new Date(editedTask.startDate) : undefined}
@@ -1799,7 +1802,7 @@ export const TaskDetailModal = ({
                               : 'Set date'}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align={isMobile ? "center" : "start"}>
+                        <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align={isMobile ? "center" : "start"}>
                           <Calendar
                             mode="single"
                             selected={editedTask.dueDate ? new Date(editedTask.dueDate) : undefined}
@@ -2094,7 +2097,7 @@ export const TaskDetailModal = ({
                               </span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="p-0 w-[240px] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                          <PopoverContent className="p-0 w-[240px] min-h-[160px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                             <Command>
                               <CommandInput placeholder="Search modules..." />
                               <CommandList className="max-h-[calc(var(--radix-popover-content-available-height)_-_45px)] overflow-y-auto">
@@ -2264,7 +2267,7 @@ export const TaskDetailModal = ({
                                 <Plus className="h-3 w-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[240px] flex flex-col overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[240px] flex flex-col min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <div className="p-2 border-b">
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -2592,8 +2595,8 @@ export const TaskDetailModal = ({
                     );
                   })}
 
-                  {/* Pending files (create mode only) */}
-                  {mode === 'create' && pendingFiles.length > 0 && (
+                  {/* Pending files */}
+                  {pendingFiles.length > 0 && (
                     <div className="space-y-1">
                       {pendingFiles.map((f, i) => {
                         const previewUrl = pendingFileUrls[i];
@@ -2746,7 +2749,7 @@ export const TaskDetailModal = ({
                   })}
 
                   {/* Uploaded video files in pending mode */}
-                  {mode === 'create' && pendingFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
+                  {pendingFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
                     <div className="space-y-1">
                       {pendingFiles.filter(f => f.type.startsWith('video/')).map((f, i) => (
                         <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-muted/30 text-sm">
@@ -2797,7 +2800,7 @@ export const TaskDetailModal = ({
                                 Select task...
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <Command>
                                 <CommandInput placeholder="Search tasks..." />
                                 <CommandList
@@ -2886,7 +2889,7 @@ export const TaskDetailModal = ({
                                 Select task...
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                               <Command>
                                 <CommandInput placeholder="Search tasks..." />
                                 <CommandList

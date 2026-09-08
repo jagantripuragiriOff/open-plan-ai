@@ -97,6 +97,7 @@ import { SlashBlockEditor, EditorBlock } from '@/components/ui/SlashBlockEditor'
 import { blocksToPlainText, hasBlockContent, plainTextToBlocks } from '@/lib/descriptionBlocks';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { logger } from '@/services/monitoring/logger';
 import { ISSUE_SEVERITY_DISPLAY, ISSUE_SEVERITY_OPTIONS } from './issueSeverity';
 import { formatModifiedFields } from './modifiedFields';
 import { attachmentsService } from '@/services/attachments.service';
@@ -131,10 +132,13 @@ interface IssueDetailContentProps {
      * When provided (from IssueDetailModal's mobile "..." menu), fields stay locked until true.
      */
     isMobileEditMode?: boolean;
+    onPendingAttachmentDeletionsChange?: (hasPending: boolean) => void;
 }
 
 export interface IssueDetailContentHandle {
     commitPendingComments: () => Promise<void>;
+    commitPendingDeletions: () => Promise<void>;
+    commitPendingFiles: () => Promise<void>;
 }
 
 
@@ -208,6 +212,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
     projectName,
     projectCode,
     isMobileEditMode,
+    onPendingAttachmentDeletionsChange,
 }, ref) {
     const { user: profile } = useAuth();
     const isMobile = useIsMobile();
@@ -227,6 +232,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
     const [pendingNewCommentIds, setPendingNewCommentIds] = useState<Set<string>>(new Set());
     const [pendingEditedComments, setPendingEditedComments] = useState<Map<string, string>>(new Map());
     const [pendingDeletedCommentIds, setPendingDeletedCommentIds] = useState<Set<string>>(new Set());
+    const [pendingDeletedAttachmentIds, setPendingDeletedAttachmentIds] = useState<Set<string>>(new Set());
     const [isAssigneePopoverOpen, setIsAssigneePopoverOpen] = useState(false);
     const [isBlockingTaskPopoverOpen, setIsBlockingTaskPopoverOpen] = useState(false);
     const [isBlockedByTaskPopoverOpen, setIsBlockedByTaskPopoverOpen] = useState(false);
@@ -316,7 +322,11 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingFiles]);
 
-    // useLayoutEffect (not useEffect) for both of the effects below — this
+    useEffect(() => {
+        onPendingAttachmentDeletionsChange?.(pendingDeletedAttachmentIds.size > 0);
+    }, [pendingDeletedAttachmentIds, onPendingAttachmentDeletionsChange]);
+
+    // useLayoutEffect (not useEffect) for the effect below — this
     // component instance is reused across different issues opened one after
     // another (only the `issue` prop changes), and the outer modal that seeds
     // it now also resets synchronously via useLayoutEffect. A regular
@@ -325,15 +335,26 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
     // catches up — a visible flash when switching issues quickly.
     useLayoutEffect(() => {
         if (issue) {
-            // Preserve loaded comments only when staying on the same issue —
+            // Preserve loaded comments and attachments only when staying on the same issue —
             // they're fetched separately via API and would otherwise leak
-            // stale comments into a newly opened/created issue.
-            setEditedIssue(prev => ({
-                ...issue,
-                comments: prev && prev.id === issue.id ? (prev.comments ?? issue.comments ?? []) : (issue.comments ?? []),
-            }));
+            // stale comments or wipe loaded attachments on parent re-renders.
+            setEditedIssue(prev => {
+                const isSameIssue = prev && prev.id === issue.id;
+                return {
+                    ...issue,
+                    comments: isSameIssue ? (prev.comments ?? issue.comments ?? []) : (issue.comments ?? []),
+                    attachments: isSameIssue ? (prev.attachments ?? issue.attachments ?? []) : (issue.attachments ?? []),
+                };
+            });
         }
     }, [issue]);
+
+    useEffect(() => {
+        setPendingDeletedAttachmentIds(new Set());
+        setPendingDeletedCommentIds(new Set());
+        setPendingEditedComments(new Map());
+        setPendingNewCommentIds(new Set());
+    }, [issue?.id]);
 
     useLayoutEffect(() => {
         // Set advanced-description mode from the loaded issue's own data — on if
@@ -392,15 +413,28 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                     uploadedBy: uploader ?? { id: '', name: 'Unknown', email: '', role: '', initials: '?' },
                 };
             });
-            setEditedIssue(prev => (prev && prev.id === issue.id ? { ...prev, attachments: mapped } : prev));
+            setEditedIssue(prev => {
+                if (!prev || prev.id !== issue.id) return prev;
+                const filteredMapped = mapped.filter(att => !pendingDeletedAttachmentIds.has(att.id));
+                const updated = { ...prev, attachments: filteredMapped };
+                initialIssueSnapshotRef.current = serializeIssueForDirtyCheck(updated);
+                if (isDraft) {
+                    onUpdate(updated);
+                }
+                return updated;
+            });
         }).catch(() => { });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [issue?.id, mode]);
 
     const isIssueDirty = useMemo(
-        () => !!editedIssue && initialIssueSnapshotRef.current !== '' && serializeIssueForDirtyCheck(editedIssue) !== initialIssueSnapshotRef.current,
-        [editedIssue]
+        () =>
+            (!!editedIssue &&
+                initialIssueSnapshotRef.current !== '' &&
+                serializeIssueForDirtyCheck(editedIssue) !== initialIssueSnapshotRef.current) ||
+            pendingDeletedAttachmentIds.size > 0,
+        [editedIssue, pendingDeletedAttachmentIds]
     );
 
     if (!editedIssue) return null;
@@ -548,49 +582,15 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
 
     const processFiles = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
-        if (mode === 'create') {
-            const newFiles = dedupeIncomingFiles(Array.from(files), pendingFiles);
-            if (newFiles.length === 0) return;
-            setPendingFiles(prev => [...prev, ...newFiles]);
-            return;
-        }
         const newFiles = dedupeIncomingFiles(
             Array.from(files),
-            attachments.map(a => ({ name: a.filename, size: a.fileSize }))
+            [
+                ...attachments.map(a => ({ name: a.filename, size: a.fileSize })),
+                ...pendingFiles.map(f => ({ name: f.name, size: f.size })),
+            ]
         );
         if (newFiles.length === 0) return;
-        setIsUploading(true);
-        try {
-            const results = await Promise.all(
-                newFiles.map(file =>
-                    attachmentsService.upload({
-                        entityId: editedIssue.id,
-                        entityType: 'issue',
-                        projectId: editedIssue.projectId,
-                        file,
-                    })
-                )
-            );
-            handleFieldChange('attachments', [
-                ...attachments,
-                ...results.map(r => ({
-                    id: r.id,
-                    filename: r.fileName ?? r.file_name ?? 'file',
-                    url: r.fileUrl ?? r.url ?? '',
-                    fileSize: r.fileSize ?? r.file_size ?? 0,
-                    fileType: r.mimeType ?? r.mime_type ?? '',
-                    uploadedAt: r.createdAt ?? r.uploaded_at ?? new Date().toISOString(),
-                    uploadedBy: profile
-                        ? { id: profile.id, name: profile.name, email: profile.email, role: profile.role || 'member', initials: profile.initials ?? '' }
-                        : { id: '', name: 'You', email: '', role: '', initials: '' },
-                })),
-            ]);
-            toast.success(`${results.length} file(s) uploaded`);
-        } catch (err: any) {
-            toast.error(err?.message || 'Failed to upload file');
-        } finally {
-            setIsUploading(false);
-        }
+        setPendingFiles(prev => [...prev, ...newFiles]);
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -632,12 +632,8 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
         setPendingFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleRemoveAttachment = async (attachmentId: string) => {
-        try {
-            await attachmentsService.delete(attachmentId);
-        } catch {
-            // Already removed or never persisted server-side; fall through to local removal.
-        }
+    const handleRemoveAttachment = (attachmentId: string) => {
+        setPendingDeletedAttachmentIds(prev => new Set(prev).add(attachmentId));
         handleFieldChange('attachments', attachments.filter(a => a.id !== attachmentId));
     };
 
@@ -803,7 +799,58 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
         setPendingNewCommentIds(new Set());
     };
 
-    useImperativeHandle(ref, () => ({ commitPendingComments }));
+    const commitPendingDeletions = async () => {
+        if (pendingDeletedAttachmentIds.size > 0) {
+            const ids = Array.from(pendingDeletedAttachmentIds);
+            for (const id of ids) {
+                try {
+                    await attachmentsService.delete(id);
+                } catch (err) {
+                    logger.error('Failed to delete attachment', err);
+                    toast.error('Failed to delete attachment');
+                }
+            }
+            setPendingDeletedAttachmentIds(new Set());
+        }
+    };
+
+    const commitPendingFiles = async () => {
+        if (mode === 'create' || !issue?.id || !isUuid(issue.id) || pendingFiles.length === 0) return;
+        setIsUploading(true);
+        try {
+            const results = await Promise.all(
+                pendingFiles.map(file =>
+                    attachmentsService.upload({
+                        entityId: issue.id,
+                        entityType: 'issue',
+                        projectId: editedIssue.projectId || projectId,
+                        file,
+                    })
+                )
+            );
+            const newAttachments = results.map(r => ({
+                id: r.id,
+                filename: r.fileName ?? r.file_name ?? 'file',
+                url: r.fileUrl ?? r.url ?? '',
+                fileSize: r.fileSize ?? r.file_size ?? 0,
+                fileType: r.mimeType ?? r.mime_type ?? '',
+                uploadedAt: r.createdAt ?? r.uploaded_at ?? new Date().toISOString(),
+                uploadedBy: profile
+                    ? { id: profile.id, name: profile.name || profile.email, email: profile.email, role: profile.role || 'member', initials: profile.initials ?? '' }
+                    : { id: '', name: 'You', email: '', role: '', initials: '' },
+            }));
+            handleFieldChange('attachments', [...(editedIssue.attachments || []), ...newAttachments]);
+            setPendingFiles([]);
+        } catch (err: any) {
+            logger.error('Failed to upload pending attachments', err);
+            toast.error(err?.message || 'Failed to upload attachments');
+            throw err;
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    useImperativeHandle(ref, () => ({ commitPendingComments, commitPendingDeletions, commitPendingFiles }));
 
     return (
         <div className="flex flex-col h-full bg-background">
@@ -942,7 +989,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                     )}
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent className="p-0 w-[260px]" align="start">
+                            <PopoverContent className="p-0 w-[260px] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                 <Command>
                                     <CommandInput placeholder="Search members..." />
 
@@ -1148,7 +1195,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                 : 'Set date'}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent className="w-auto p-0 min-h-[300px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto" align="start">
                                         <Calendar
                                             mode="single"
                                             selected={editedIssue.dueDate ? parseISO(editedIssue.dueDate) : undefined}
@@ -1447,7 +1494,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     <Plus className="h-3 w-3" />
                                                 </button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[240px] flex flex-col overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[240px] flex flex-col min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput
                                                         ref={tagSearchInputRef}
@@ -1828,8 +1875,8 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                 );
                             })}
 
-                            {/* Pending files (create mode only, uploaded once the issue is created) */}
-                            {mode === 'create' && pendingFiles.length > 0 && (
+                            {/* Pending files (uploaded once saved/updated) */}
+                            {pendingFiles.length > 0 && (
                                 <div className="space-y-1">
                                     {pendingFiles.map((f, i) => {
                                         const previewUrl = pendingFileUrls[i];
@@ -1976,8 +2023,8 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                 );
                             })}
 
-                            {/* Pending video files (create mode) */}
-                            {mode === 'create' && pendingFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
+                            {/* Pending video files */}
+                            {pendingFiles.filter(f => f.type.startsWith('video/')).length > 0 && (
                                 <div className="space-y-1">
                                     {pendingFiles.filter(f => f.type.startsWith('video/')).map((f, i) => (
                                         <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-muted/30 text-sm">
@@ -2027,7 +2074,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     Select task...
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput placeholder="Search tasks..." />
                                                     <CommandList
@@ -2115,7 +2162,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                                     Select task...
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] overflow-hidden" align="start">
+                                            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-h-[180px] max-h-[var(--radix-popover-content-available-height)] overflow-hidden" align="start">
                                                 <Command>
                                                     <CommandInput placeholder="Search tasks..." />
                                                     <CommandList
@@ -2324,6 +2371,7 @@ export const IssueDetailContent = forwardRef<IssueDetailContentHandle, IssueDeta
                                     onClick={async () => {
                                         setIsSaving(true);
                                         try {
+                                            await commitPendingDeletions();
                                             await onUpdate(editedIssue);
                                             await commitPendingComments();
                                             toast.success('Issue updated successfully');
