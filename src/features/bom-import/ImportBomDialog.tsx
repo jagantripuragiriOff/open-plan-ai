@@ -66,8 +66,16 @@ function toFriendlyImportError(errorSummary: string | null | undefined): string 
     return `This file type isn’t supported for BOM import. Please use ${SUPPORTED_IMPORT_FILE_LABEL}.`;
   }
 
-  if (normalized.includes('couldn\'t read') || normalized.includes('could not read') || normalized.includes('no readable')) {
-    return 'We couldn’t read this file properly. Try exporting it again, using a simpler format, or uploading another file.';
+  // The backend's own messages are written for the user — a missing sheet, an
+  // empty file, a header row with nothing under it, etc. Show those as-is
+  // rather than flattening them to a vague catch-all; only fall back to the
+  // generic line for something that looks like an internal/stack error.
+  const trimmed = errorSummary.trim();
+  const looksInternal =
+    trimmed.length > 240 ||
+    /\b(error|exception|econnrefused|undefined is not|cannot read propert|stack)\b/i.test(trimmed);
+  if (trimmed && !looksInternal) {
+    return trimmed;
   }
 
   return 'We couldn’t import this file. Please try another file or edit the file so the parts list is clearer, then try again.';
