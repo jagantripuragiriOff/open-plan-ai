@@ -1043,12 +1043,16 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
               <Field label="Lead Time">{formatLeadTime(node.leadTime)}</Field>
               <Field label="BOM Level">{node.levelLabel ?? node.level}</Field>
               <Field label="Handled By">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
-                    {getInitials(node.owner)}
+                {node.owner?.trim() ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
+                      {getInitials(node.owner)}
+                    </span>
+                    {node.owner}
                   </span>
-                  {node.owner}
-                </span>
+                ) : (
+                  <span className="text-muted-foreground/60 italic">Not assigned</span>
+                )}
               </Field>
               {node.createdByName && (
                 <Field label="Created By">

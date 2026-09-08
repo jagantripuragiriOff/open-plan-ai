@@ -86,6 +86,14 @@ function ownerColor(name: string) {
 }
 function OwnerBadge({ name, size = 'sm' }: { name: string; size?: 'sm' | 'xs' }) {
   const sz = size === 'xs' ? 'w-4 h-4 text-[8px]' : 'w-5 h-5 text-[9px]';
+  if (!name?.trim()) {
+    return (
+      <span className="inline-flex items-center gap-1.5 min-w-0 w-full">
+        <span className={`${sz} rounded-full border border-dashed border-muted-foreground/40 shrink-0`} />
+        <span className="text-xs text-muted-foreground/60 italic truncate min-w-0">Not assigned</span>
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 min-w-0 w-full">
       <span className={`${sz} rounded-full flex items-center justify-center font-bold text-white shrink-0`}
