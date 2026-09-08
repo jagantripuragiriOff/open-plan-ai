@@ -656,8 +656,12 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
     // Upload any documents attached in the edit form first so a new/removed
     // photo's URL can ride along in the same updatePart call below.
     const { photoUrl } = await saveBomDocs(originalNode.id, payload);
+    // Owner lives on the BOM node, not the part — carry it through on save.
+    // `payload.ownerId` is only set when a project member was picked; when it's
+    // absent the field wasn't touched, so leave the node's owner untouched too.
+    const ownerDto = payload.ownerId ? { ownerId: payload.ownerId } : {};
     if (payload.versionMode === 'new') {
-      await updateNode.mutateAsync({ nodeId: originalNode.id, dto: { quantity: payload.qty, unit: payload.uom } });
+      await updateNode.mutateAsync({ nodeId: originalNode.id, dto: { quantity: payload.qty, unit: payload.uom, ...ownerDto } });
       await createRev.mutateAsync({
         partId: originalNode._partId,
         dto: {
@@ -709,7 +713,7 @@ export function BOMDetailScreen({ node: originalNode, rootNodes, orgId, projectI
         (payload.distributor || null) !== (activeRev as BOMRevision).distributor ||
         (payload.mpn || null) !== (activeRev as BOMRevision).mpn;
       await Promise.all([
-        updateNode.mutateAsync({ nodeId: originalNode.id, dto: { quantity: payload.qty, unit: payload.uom } }),
+        updateNode.mutateAsync({ nodeId: originalNode.id, dto: { quantity: payload.qty, unit: payload.uom, ...ownerDto } }),
         updatePart.mutateAsync({ partId: originalNode._partId, dto: { name: payload.name, description: payload.desc, category: payload.category, manufacturer: payload.manufacturer || undefined, distributor: payload.distributor || undefined, mpn: payload.mpn || undefined, customFields: payload.customFields, ...(photoUrl !== undefined ? { imageUrl: photoUrl } : {}) } }),
         ...(snapshotChanged ? [createRev.mutateAsync({
           partId: originalNode._partId,

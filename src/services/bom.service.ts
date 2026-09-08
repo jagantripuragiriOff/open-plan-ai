@@ -28,6 +28,7 @@ export interface UpdateNodeDto {
   designators?: string | null;
   status?: 'approved' | 'pending' | 'draft';
   notes?: string;
+  ownerId?: string | null;
 }
 
 export interface MapColumnsResponse {
