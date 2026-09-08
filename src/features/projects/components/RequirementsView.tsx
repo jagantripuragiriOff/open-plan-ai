@@ -321,7 +321,7 @@ export default function RequirementsView({ projectId, orgId, selectedKey = null,
     <div className="flex flex-col px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
 
       {/* ── Fixed header zone (no scroll) ─────────────────────────── */}
-      <div className="shrink-0 py-4">
+      <div className="shrink-0 pt-4 md:pt-5 pb-3">
 
         {/* Stats tiles row */}
         <div className="flex items-stretch gap-2.5 md:gap-3 flex-wrap mb-3">
@@ -596,8 +596,8 @@ function ReqTable({ rows, expanded, selected, filtersActive, toggleExpand, toggl
 
   return (
     <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-      {/* Sticky header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 2, minWidth: TABLE_MIN_W }}>
+      {/* Header */}
+      <div style={{ minWidth: TABLE_MIN_W }}>
         <div style={{ ...gridStyle, background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))', padding: '0 6px', alignItems: 'center', height: 36 }}>
           {/* checkbox */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1601,8 +1601,8 @@ function TraceMatrix({ onOpen, dataVersion }: { onOpen: (k: string) => void; dat
     <div style={{ flex: 1, overflow: 'auto', borderTop: '1px solid hsl(var(--border))', background: 'hsl(var(--background))' }}>
       <div style={{ minWidth: NAME_W + MATRIX_COLS.length * COL_W + 40, paddingBottom: 40 }}>
 
-        {/* Sticky header */}
-        <div style={{ display: 'flex', alignItems: 'stretch', position: 'sticky', top: 0, zIndex: 20, background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'stretch', background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))' }}>
           <div style={{
             width: NAME_W, flexShrink: 0, display: 'flex', alignItems: 'center',
             padding: '0 24px', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.06em',

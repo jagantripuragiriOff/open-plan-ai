@@ -811,7 +811,7 @@ export function IssuesView({
                 className={isMobile ? 'w-full' : 'w-full overflow-x-auto pb-4'}
               >
                 <div
-                  className={isMobile ? 'flex flex-col gap-3 w-full' : 'inline-flex gap-4 min-w-full'}
+                  className={isMobile ? 'flex flex-col gap-3 w-full' : 'inline-flex gap-4 min-w-full pr-4 md:pr-6'}
                   style={isMobile ? undefined : { width: 'max-content' }}
                 >
                   {visibleColumns.map((column, index) => {
@@ -1133,7 +1133,7 @@ export function IssuesView({
 
                   {/* Add Bucket */}
                   <div className={isMobile ? 'w-full' : 'w-[280px] flex-shrink-0'}>
-                    <div className={isMobile ? 'pb-1' : 'sticky top-0 bg-background z-10 pb-3 space-y-3'}>
+                    <div className={isMobile ? 'pb-1' : 'bg-background pb-3 space-y-3'}>
                       {!isMobile && (
                         <div className="flex items-center gap-2 px-1">
                           <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
@@ -1290,18 +1290,18 @@ export function IssuesView({
           )}
         </div>
       ) : (
-        <div className="rounded-lg border">
-          <div ref={tableScrollRef} className="max-h-[calc(100vh-320px)] min-h-[240px] overflow-y-auto">
-            <Table containerClassName="relative w-full overflow-visible">
-              <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
-                <TableRow className="bg-background">
-                  <TableHead className="w-[80px] sticky top-0 z-10 bg-background">Priority</TableHead>
-                  <TableHead className="w-[300px] sticky top-0 z-10 bg-background">Issue</TableHead>
-                  <TableHead className="sticky top-0 z-10 bg-background">Category</TableHead>
-                  <TableHead className="sticky top-0 z-10 bg-background">Status</TableHead>
-                  <TableHead className="sticky top-0 z-10 bg-background">Blocking</TableHead>
-                  <TableHead className="sticky top-0 z-10 bg-background">Assigned</TableHead>
-                  <TableHead className="sticky top-0 z-10 bg-background">Reported</TableHead>
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div ref={tableScrollRef} className="overflow-x-auto">
+            <Table containerClassName="relative w-full">
+              <TableHeader className="bg-muted/40 border-b border-border">
+                <TableRow className="bg-background hover:bg-background">
+                  <TableHead className="w-[80px] bg-background font-semibold text-foreground">Priority</TableHead>
+                  <TableHead className="w-[300px] bg-background font-semibold text-foreground">Issue</TableHead>
+                  <TableHead className="bg-background font-semibold text-foreground">Category</TableHead>
+                  <TableHead className="bg-background font-semibold text-foreground">Status</TableHead>
+                  <TableHead className="bg-background font-semibold text-foreground">Blocking</TableHead>
+                  <TableHead className="bg-background font-semibold text-foreground">Assigned</TableHead>
+                  <TableHead className="bg-background font-semibold text-foreground">Reported</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

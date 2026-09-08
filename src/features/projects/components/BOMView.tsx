@@ -932,9 +932,9 @@ function ListView({
   const rowH = 46;
 
   return (
-    <div className="hidden md:block flex-1 overflow-y-auto overflow-x-auto border-t border-border">
+    <div className="hidden md:block flex-1 overflow-x-auto border-t border-border">
       {/* Header */}
-      <div className="flex items-center px-6 border-b border-border bg-background sticky top-0 z-10" style={{ minWidth: 1270 }}>
+      <div className="flex items-center px-6 border-b border-border bg-muted/40" style={{ minWidth: 1270 }}>
         {HEADERS.map((c, i) => (
           <div key={c.key}
             style={{ flexBasis: c.w ?? 'auto', flexGrow: c.w ? 0 : 1, flexShrink: c.w ? 0 : 1 }}
@@ -1932,7 +1932,7 @@ export function BOMView({
   return (
     <div className="flex flex-col h-full px-4 md:px-6 overflow-hidden bg-background" style={{ height: 'calc(100vh - 140px)' }}>
       {/* ── Fixed header zone (no scroll) ─────────────────────────── */}
-      <div className="shrink-0 py-4">
+      <div className="shrink-0 pt-4 md:pt-5 pb-3">
         {/* Stat cards */}
         <div className="flex gap-2.5 md:gap-3 flex-wrap mb-4">
           <StatCard label="Total Parts" value={String(totalCount)} icon={Layers} iconColor="#2563EB" accent />

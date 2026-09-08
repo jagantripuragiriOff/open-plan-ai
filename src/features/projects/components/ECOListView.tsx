@@ -451,7 +451,7 @@ export function ECOListView({
   return (
     <div className="flex flex-col h-full overflow-hidden text-foreground">
       {/* KPI cards */}
-      <div className="shrink-0 px-4 md:px-6 pt-4 pb-3">
+      <div className="shrink-0 px-4 md:px-6 pt-4 md:pt-5 pb-3">
         <div className="flex gap-2.5 md:gap-3 flex-wrap">
           {statsLoading ? (
             <>
